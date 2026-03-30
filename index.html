@@ -1189,8 +1189,11 @@ function renderAnnualView(){
   var yearExp=expMonths.reduce((a,b)=>a+b,0);
   var yearSav=yearInc-yearExp;
 
+  // Spacer before totals
+  html+='<tr><td colspan="16" style="padding:6px 0;background:var(--bg3)"></td></tr>';
+
   // Total gastos
-  html+='<tr style="border-top:1px solid var(--border2)">';
+  html+='<tr style="border-top:0.5px solid var(--border2)">';
   html+='<td style="padding:8px 4px 8px 1rem;font-size:11px;font-weight:500;color:#D85A30">Total gastos</td>';
   html+='<td style="border-right:0.5px solid var(--border)"></td>';
   for(var mi=0;mi<12;mi++){var v=expMonths[mi];var isCur=y===now.getFullYear()&&mi===now.getMonth();html+='<td style="'+SR+'background:'+(isCur?'rgba(0,0,0,.03):':'')+';color:#D85A30">'+(v>0?fmtC(v):'—')+'</td>';}
@@ -1215,6 +1218,23 @@ function renderAnnualView(){
   var sc2=yearSav>=0?'#1D9E75':'#D85A30';
   html+='<td style="'+SR+'border-left:0.5px solid var(--border);padding-right:6px;color:'+sc2+'">'+(yearInc>0||yearExp>0?(yearSav>=0?'+':'')+fmtC(Math.abs(yearSav)):'—')+'</td>';
   html+='<td style="padding:4px 1rem 4px 2px;background:var(--bg2);text-align:center"><canvas id="spark__sav" width="48" height="22" style="display:block;margin:0 auto"></canvas></td>';
+  html+='</tr>';
+
+  // Ahorro %
+  html+='<tr style="border-top:0.5px solid var(--border);background:var(--bg2)">';
+  html+='<td style="padding:6px 4px 6px 1rem;font-size:11px;color:var(--text2)">Tasa de ahorro</td>';
+  html+='<td style="border-right:0.5px solid var(--border)"></td>';
+  for(var mi=0;mi<12;mi++){
+    var inc=incMonths[mi],sav=savMonths[mi];
+    var pct=inc>0?Math.round(sav/inc*100):null;
+    var isCur=y===now.getFullYear()&&mi===now.getMonth();
+    var sc=pct>=0?'#1D9E75':'#D85A30';
+    html+='<td style="'+SR+'background:var(--bg2);color:'+(pct!==null?sc:'var(--text3)')+';font-size:11px">'+(pct!==null?pct+'%':'—')+'</td>';
+  }
+  var yearPct=yearInc>0?Math.round(yearSav/yearInc*100):null;
+  var sc3=yearPct>=0?'#1D9E75':'#D85A30';
+  html+='<td style="'+SR+'border-left:0.5px solid var(--border);padding-right:6px;color:'+(yearPct!==null?sc3:'var(--text3)')+'">'+(yearPct!==null?yearPct+'%':'—')+'</td>';
+  html+='<td></td>';
   html+='</tr>';
 
   html+='</tbody></table>';
