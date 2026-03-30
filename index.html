@@ -893,6 +893,8 @@ function addSubCatInline(catId){
   budExpanded[catId]=true; // keep expanded
   renderAnnualView();
 }
+
+function tableDragStart(e, catId){
   tableDragId=catId;
   e.dataTransfer.effectAllowed='move';
   e.dataTransfer.setData('text/plain', catId);
