@@ -233,9 +233,6 @@
     </div>
   </div>
 
-  <!-- Tooltip -->
-  <div id="bud-tooltip" style="display:none;position:fixed;z-index:500;background:var(--text);color:var(--bg);font-size:12px;padding:6px 10px;border-radius:6px;max-width:220px;line-height:1.4;pointer-events:none;box-shadow:0 4px 12px rgba(0,0,0,.2)"></div>
-
   <!-- Modal: editar celda -->
   <div id="cell-edit-modal" class="modal-backdrop" style="display:none" onclick="if(event.target===this)closeCellModal()">
     <div class="modal" style="max-width:340px">
@@ -349,6 +346,8 @@
       </div>
       <p style="font-size:11px;color:var(--text3);margin-top:10px">Los datos se guardan como <code>misfinanzas_datos.json</code> en tu Drive.</p>
     </div>
+    <div class="card">
+      <div class="card-title">Moneda</div>
       <p style="font-size:13px;color:var(--text2);margin-bottom:1rem">Selecciona la moneda que se usará en toda la aplicación.</p>
       <div id="currency-list" style="display:flex;flex-direction:column;gap:8px"></div>
     </div>
@@ -503,6 +502,7 @@ function saveTx(){save('fin_tx',transactions);}
 function saveGoals(){save('fin_goals',goals);}
 
 function showTab(t,btn){
+  hideTooltip();
   document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));
   document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
   document.getElementById('tab-'+t).classList.add('active');
@@ -1759,5 +1759,6 @@ setTimeout(renderCharts,100);
 setTimeout(driveInit,1000);
 document.addEventListener('keydown',function(e){if(e.key==='Escape')closeEditModal();});
 </script>
+<div id="bud-tooltip" style="display:none;position:fixed;z-index:500;background:var(--text);color:var(--bg);font-size:12px;padding:6px 10px;border-radius:6px;max-width:220px;line-height:1.4;pointer-events:none;box-shadow:0 4px 12px rgba(0,0,0,.2)"></div>
 </body>
 </html>
