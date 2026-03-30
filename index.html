@@ -861,6 +861,18 @@ function budDragEnd(){
 var tableDragId=null;
 var tableDragOverId=null;
 
+var catClickTimer=null;
+
+function catSingleClick(catId){
+  clearTimeout(catClickTimer);
+  catClickTimer=setTimeout(function(){ toggleCat(catId); }, 220);
+}
+
+function catDoubleClick(catId){
+  clearTimeout(catClickTimer);
+  renameCat(catId);
+}
+
 function renameCat(catId){
   var cat=budStruct.find(c=>c.id===catId);
   if(!cat)return;
@@ -1022,7 +1034,7 @@ function renderAnnualView(){
       html+='<td style="padding:7px 4px 7px 0.5rem;font-size:12px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">';
       html+='<span style="color:var(--text3);font-size:13px;margin-right:4px;cursor:grab;vertical-align:middle;user-select:none">⠿</span>';
       html+='<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:'+cat.color+';margin-right:4px;vertical-align:middle"></span>';
-      html+='<span onclick="toggleCat(\''+cat.id+'\')" ondblclick="event.stopPropagation();renameCat(\''+cat.id+'\')" style="cursor:pointer" title="Clic: expandir · Doble clic: renombrar">';
+      html+='<span onclick="catSingleClick(\''+cat.id+'\')" ondblclick="catDoubleClick(\''+cat.id+'\')" style="cursor:pointer" title="Clic: expandir · Doble clic: renombrar">';
       html+='<span style="color:var(--text2);margin-right:3px;font-size:10px">'+(isOpen?'▾':'▸')+'</span>';
       html+=escHtml(cat.name)+'</span></td>';
       html+='<td style="border-right:0.5px solid var(--border)"></td>';
@@ -1066,8 +1078,9 @@ function renderAnnualView(){
         html+='</td>';
         for(var mi2=0;mi2<13;mi2++) html+='<td></td>';
         html+='<td></td></tr>';
-    });
-  });
+      } // end isOpen
+    }); // end cats.forEach
+  }); // end sections
 
   // ── Summary rows ───────────────────────────────────────────────────────
   var SR='padding:8px 3px;font-size:11px;font-weight:500;text-align:right;white-space:nowrap;';
