@@ -1375,6 +1375,12 @@ function renderAnnualView(){
     if(total>0){pieLabels.push(cat.name);pieVals.push(parseFloat(total.toFixed(2)));pieColors.push(cat.color);}
   });
 
+  // Sort by value descending
+  var pieSorted=pieLabels.map((l,i)=>({l,v:pieVals[i],c:pieColors[i]})).sort((a,b)=>b.v-a.v);
+  pieLabels=pieSorted.map(x=>x.l);
+  pieVals=pieSorted.map(x=>x.v);
+  pieColors=pieSorted.map(x=>x.c);
+
   var pieTotal=pieVals.reduce((a,b)=>a+b,0);
   if(budPieChart)budPieChart.destroy();
   // Update center label
