@@ -863,6 +863,26 @@ var tableDragOverId=null;
 
 var catClickTimer=null;
 
+var subCatClickTimer=null;
+
+function subCatSingleClick(){
+  // single click on subcat name does nothing — just prevent dblclick interference
+  clearTimeout(subCatClickTimer);
+}
+
+function renameSubCat(catId, subId){
+  clearTimeout(subCatClickTimer);
+  var cat=budStruct.find(c=>c.id===catId);
+  if(!cat)return;
+  var sub=cat.subs.find(s=>s.id===subId);
+  if(!sub)return;
+  var newName=prompt('Nuevo nombre para "'+sub.name+'":', sub.name);
+  if(!newName||!newName.trim()||newName.trim()===sub.name)return;
+  sub.name=newName.trim();
+  saveBudStruct();
+  renderAnnualView();
+}
+
 function catSingleClick(catId){
   clearTimeout(catClickTimer);
   catClickTimer=setTimeout(function(){ toggleCat(catId); }, 220);
@@ -1056,7 +1076,7 @@ function renderAnnualView(){
           for(var mi=0;mi<12;mi++) subMonths.push(getBudVal(cat.id,sub.id,y,mi));
           var subYear=subMonths.reduce((a,b)=>a+b,0);
           html+='<tr style="border-bottom:0.5px solid var(--border)">';
-          html+='<td style="padding:6px 4px 6px 2rem;font-size:11px;color:var(--text2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">↳ '+escHtml(sub.name)+'</td>';
+          html+='<td onclick="subCatSingleClick()" ondblclick="renameSubCat(\''+cat.id+'\',\''+sub.id+'\')" style="padding:6px 4px 6px 2rem;font-size:11px;color:var(--text2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer" title="Doble clic: renombrar">↳ '+escHtml(sub.name)+'</td>';
           html+='<td style="border-right:0.5px solid var(--border)"></td>';
           for(var mi=0;mi<12;mi++){
             var v=subMonths[mi];
