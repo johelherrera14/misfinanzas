@@ -5,6 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Mis Finanzas Personales</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+<script src="https://apis.google.com/js/api.js" async defer></script>
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
   :root {
@@ -319,7 +321,17 @@
   <!-- CONFIGURACIÓN -->
   <div id="tab-config" class="section">
     <div class="card">
-      <div class="card-title">Moneda</div>
+      <div class="card-title">Google Drive</div>
+      <p style="font-size:13px;color:var(--text2);margin-bottom:1rem">Guarda y sincroniza tus datos en tu Google Drive. Cada usuario usa su propia cuenta.</p>
+      <div id="drive-status" style="margin-bottom:1rem"></div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button id="btn-drive-connect" class="btn-primary" onclick="driveSignIn()" style="width:auto;padding:9px 20px;margin-top:0">Conectar con Google Drive</button>
+        <button id="btn-drive-save" class="btn-primary" onclick="driveSave()" style="display:none;width:auto;padding:9px 20px;margin-top:0;background:#1D9E75">↑ Guardar en Drive</button>
+        <button id="btn-drive-load" class="btn-primary" onclick="driveLoad()" style="display:none;width:auto;padding:9px 20px;margin-top:0;background:#378ADD">↓ Cargar desde Drive</button>
+        <button id="btn-drive-disconnect" class="btn-sm" onclick="driveSignOut()" style="display:none">Desconectar</button>
+      </div>
+      <p style="font-size:11px;color:var(--text3);margin-top:10px">Los datos se guardan como <code>misfinanzas_datos.json</code> en tu Drive.</p>
+    </div>
       <p style="font-size:13px;color:var(--text2);margin-bottom:1rem">Selecciona la moneda que se usará en toda la aplicación.</p>
       <div id="currency-list" style="display:flex;flex-direction:column;gap:8px"></div>
     </div>
@@ -483,7 +495,7 @@ function showTab(t,btn){
   if(t==='presupuesto'){renderBudgetAnnual();}
   if(t==='metas'){renderGoals();}
   if(t==='categorias'){renderCats();}
-  if(t==='config'){renderConfig();}
+  if(t==='config'){renderConfig();driveUpdateUI();}
 }
 
 function setType(t){
@@ -1360,6 +1372,173 @@ function deleteTxFromModal(){
   renderTx();renderQuickSummary();updateMetrics();renderRecent();
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+// GOOGLE DRIVE INTEGRATION
+// ═══════════════════════════════════════════════════════════════════════════
+var DRIVE_CLIENT_ID='170703155134-v1a5miqndq41rvji9lp4p8doitejhh9t.apps.googleusercontent.com';
+var DRIVE_SCOPES='https://www.googleapis.com/auth/drive.file';
+var DRIVE_FILE_NAME='misfinanzas_datos.json';
+var driveFileId=null;
+var driveReady=false;
+var driveUser=null;
+var tokenClient=null;
+
+function driveInit(){
+  if(typeof google==='undefined'||typeof gapi==='undefined'){
+    setTimeout(driveInit,500);return;
+  }
+  gapi.load('client',function(){
+    gapi.client.init({}).then(function(){
+      driveReady=true;
+      // Check if we have a stored token
+      var stored=load('fin_drive_user',null);
+      if(stored){driveUser=stored;driveUpdateUI();}
+    });
+  });
+  tokenClient=google.accounts.oauth2.initTokenClient({
+    client_id:DRIVE_CLIENT_ID,
+    scope:DRIVE_SCOPES,
+    callback:function(resp){
+      if(resp.error){driveShowStatus('Error al conectar: '+resp.error,'red');return;}
+      // Find or create file
+      driveUser={email:'conectado'};
+      save('fin_drive_user',driveUser);
+      driveUpdateUI();
+      driveFindFile();
+    }
+  });
+}
+
+function driveSignIn(){
+  if(!driveReady){alert('Cargando Google API, espera un momento e inténtalo de nuevo.');return;}
+  tokenClient.requestAccessToken({prompt:'consent'});
+}
+
+function driveSignOut(){
+  google.accounts.oauth2.revoke(gapi.client.getToken()&&gapi.client.getToken().access_token||'',function(){});
+  gapi.client.setToken(null);
+  driveUser=null;driveFileId=null;
+  save('fin_drive_user',null);
+  driveUpdateUI();
+  driveShowStatus('Desconectado de Google Drive.','gray');
+}
+
+function driveUpdateUI(){
+  var connected=!!driveUser;
+  document.getElementById('btn-drive-connect').style.display=connected?'none':'';
+  document.getElementById('btn-drive-save').style.display=connected?'':'none';
+  document.getElementById('btn-drive-load').style.display=connected?'':'none';
+  document.getElementById('btn-drive-disconnect').style.display=connected?'':'none';
+  if(connected) driveShowStatus('✓ Conectado a Google Drive','#1D9E75');
+}
+
+function driveShowStatus(msg,color){
+  var el=document.getElementById('drive-status');
+  if(!el)return;
+  el.innerHTML='<span style="font-size:13px;color:'+(color||'var(--text2)')+'">'+msg+'</span>';
+}
+
+function driveGetAllData(){
+  return JSON.stringify({
+    transactions,goals,customCats,currency:currencyConfig,
+    budStruct,budValues,monthBudgets
+  },null,2);
+}
+
+function driveApplyData(raw){
+  try{
+    var d=JSON.parse(raw);
+    if(d.transactions) transactions=d.transactions;
+    if(d.goals) goals=d.goals;
+    if(d.customCats) customCats=d.customCats;
+    if(d.currency) currencyConfig=d.currency;
+    if(d.budStruct) budStruct=d.budStruct;
+    if(d.budValues) budValues=d.budValues;
+    if(d.monthBudgets) monthBudgets=d.monthBudgets;
+    // Persist to localStorage
+    saveTx();saveGoals();saveCats();saveBudStruct();saveBudValues();saveMonthBudgets();
+    save('fin_currency',currencyConfig);
+    return true;
+  }catch(e){return false;}
+}
+
+function driveFindFile(){
+  driveShowStatus('Buscando archivo en Drive...','gray');
+  gapi.client.request({
+    path:'https://www.googleapis.com/drive/v3/files',
+    method:'GET',
+    params:{q:'name="'+DRIVE_FILE_NAME+'" and trashed=false',fields:'files(id,name,modifiedTime)',spaces:'drive'}
+  }).then(function(resp){
+    var files=resp.result.files;
+    if(files&&files.length>0){
+      driveFileId=files[0].id;
+      var d=new Date(files[0].modifiedTime).toLocaleString('es-ES');
+      driveShowStatus('✓ Conectado · Archivo encontrado (última sincronización: '+d+')','#1D9E75');
+    } else {
+      driveFileId=null;
+      driveShowStatus('✓ Conectado · Sin archivo previo. Guarda para crear uno.','#1D9E75');
+    }
+  }).catch(function(){
+    driveShowStatus('Error buscando archivo en Drive.','#D85A30');
+  });
+}
+
+function driveSave(){
+  if(!driveReady||!gapi.client.getToken()){driveSignIn();return;}
+  driveShowStatus('Guardando en Drive...','gray');
+  var content=driveGetAllData();
+  var boundary='fin_boundary';
+  var body='--'+boundary+'\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n';
+  if(driveFileId){
+    body+=JSON.stringify({name:DRIVE_FILE_NAME});
+  } else {
+    body+=JSON.stringify({name:DRIVE_FILE_NAME,mimeType:'application/json'});
+  }
+  body+='\r\n--'+boundary+'\r\nContent-Type: application/json\r\n\r\n'+content+'\r\n--'+boundary+'--';
+  var method=driveFileId?'PATCH':'POST';
+  var path=driveFileId
+    ?'https://www.googleapis.com/upload/drive/v3/files/'+driveFileId+'?uploadType=multipart'
+    :'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart';
+  gapi.client.request({
+    path,method,
+    headers:{'Content-Type':'multipart/related; boundary='+boundary},
+    body
+  }).then(function(resp){
+    driveFileId=resp.result.id||driveFileId;
+    var now=new Date().toLocaleString('es-ES');
+    driveShowStatus('✓ Guardado en Drive correctamente ('+now+')','#1D9E75');
+  }).catch(function(e){
+    driveShowStatus('Error al guardar: '+JSON.stringify(e.result&&e.result.error||e),'#D85A30');
+  });
+}
+
+function driveLoad(){
+  if(!driveReady||!gapi.client.getToken()){driveSignIn();return;}
+  if(!driveFileId){driveShowStatus('No hay archivo en Drive todavía. Guarda primero.','#EF9F27');return;}
+  if(!confirm('¿Cargar datos desde Drive? Esto reemplazará los datos actuales.'))return;
+  driveShowStatus('Cargando desde Drive...','gray');
+  gapi.client.request({
+    path:'https://www.googleapis.com/drive/v3/files/'+driveFileId+'?alt=media',
+    method:'GET'
+  }).then(function(resp){
+    var raw=typeof resp.body==='string'?resp.body:JSON.stringify(resp.result);
+    if(driveApplyData(raw)){
+      driveShowStatus('✓ Datos cargados correctamente desde Drive','#1D9E75');
+      // Re-render everything
+      updateMetrics();renderRecent();setTimeout(renderCharts,100);
+      if(document.getElementById('tab-transacciones').classList.contains('active')) renderTx();
+      if(document.getElementById('tab-presupuesto').classList.contains('active')) renderAnnualView();
+      if(document.getElementById('tab-metas').classList.contains('active')) renderGoals();
+      if(document.getElementById('tab-categorias').classList.contains('active')) renderCats();
+      renderConfig();
+    } else {
+      driveShowStatus('Error al procesar el archivo de Drive.','#D85A30');
+    }
+  }).catch(function(){
+    driveShowStatus('Error al cargar desde Drive.','#D85A30');
+  });
+}
+
 // ── INIT ───────────────────────────────────────────────────────────────────
 document.getElementById('struct-type').addEventListener('change',function(){
   document.getElementById('struct-parent-row').style.display=this.value==='sub'?'':'none';
@@ -1368,6 +1547,7 @@ document.getElementById('inp-date').value=new Date().toISOString().split('T')[0]
 fillCat(getCatsByType('ingreso'));
 updateMetrics();renderRecent();
 setTimeout(renderCharts,100);
+setTimeout(driveInit,1000);
 document.addEventListener('keydown',function(e){if(e.key==='Escape')closeEditModal();});
 </script>
 </body>
