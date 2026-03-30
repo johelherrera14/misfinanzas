@@ -208,6 +208,24 @@
       <div id="bud-annual-table"></div>
     </div>
 
+    <!-- Gráfica de tarta por categoría -->
+    <div class="card">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;flex-wrap:wrap;gap:8px">
+        <div class="card-title" style="margin-bottom:0">Distribución de gastos por categoría</div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <select id="pie-mode-sel" onchange="renderBudgetAnnual()" style="height:30px;font-size:12px;padding:0 8px;border:0.5px solid var(--border2);border-radius:var(--radius);background:var(--bg);color:var(--text);width:auto">
+            <option value="year">Año completo</option>
+            <option value="month">Por mes</option>
+          </select>
+          <select id="pie-month-sel" onchange="renderBudgetAnnual()" style="display:none;height:30px;font-size:12px;padding:0 8px;border:0.5px solid var(--border2);border-radius:var(--radius);background:var(--bg);color:var(--text);width:auto"></select>
+        </div>
+      </div>
+      <div style="display:flex;gap:2rem;align-items:center;flex-wrap:wrap">
+        <div style="position:relative;width:220px;height:220px;flex-shrink:0"><canvas id="chartBudPie"></canvas></div>
+        <div id="pie-legend" style="flex:1;display:flex;flex-direction:column;gap:8px;min-width:160px"></div>
+      </div>
+    </div>
+
     <!-- Gráficas -->
     <div class="card">
       <div class="card-title">Ingresos, gastos y ahorro planificados por mes</div>
@@ -671,6 +689,7 @@ function renderCharts(){
 // PRESUPUESTO INDEPENDIENTE — categorías + subcategorías × meses
 // ═══════════════════════════════════════════════════════════════════════════
 var annualBarChart=null;
+var budPieChart=null;
 var budSelectedYear=new Date().getFullYear();
 
 var MONTHS_ES=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
@@ -1315,6 +1334,63 @@ function renderAnnualView(){
   drawSparkline('spark__exp',expMonths,'#D85A30');
   drawSparkline('spark__inc',incMonths,'#1D9E75');
   drawSparkline('spark__sav',savMonths.map(v=>Math.max(v,0)),'#378ADD');
+
+  // ── Pie chart ─────────────────────────────────────────────────────────────
+  var pieModeEl=document.getElementById('pie-mode-sel');
+  var pieMonthEl=document.getElementById('pie-month-sel');
+  var pieMode=pieModeEl?pieModeEl.value:'year';
+
+  // Populate month selector
+  if(pieMonthEl){
+    if(pieMode==='month'){
+      pieMonthEl.style.display='';
+      if(!pieMonthEl.options.length||pieMonthEl.dataset.year!==String(y)){
+        pieMonthEl.innerHTML=MONTHS_ES.map((m,i)=>'<option value="'+i+'">'+m+'</option>').join('');
+        pieMonthEl.dataset.year=String(y);
+      }
+    } else {
+      pieMonthEl.style.display='none';
+    }
+  }
+
+  // Gather expense data
+  var expCats=budStruct.filter(c=>c.type==='expense');
+  var pieLabels=[],pieVals=[],pieColors=[];
+  expCats.forEach(function(cat){
+    var total=0;
+    if(pieMode==='year'){
+      for(var mi=0;mi<12;mi++) total+=catMonthTotal(cat,y,mi);
+    } else {
+      var selM=pieMonthEl?parseInt(pieMonthEl.value)||0:0;
+      total=catMonthTotal(cat,y,selM);
+    }
+    if(total>0){pieLabels.push(cat.name);pieVals.push(parseFloat(total.toFixed(2)));pieColors.push(cat.color);}
+  });
+
+  var pieTotal=pieVals.reduce((a,b)=>a+b,0);
+  if(budPieChart)budPieChart.destroy();
+  if(pieLabels.length&&document.getElementById('chartBudPie')){
+    budPieChart=new Chart(document.getElementById('chartBudPie').getContext('2d'),{
+      type:'doughnut',
+      data:{labels:pieLabels,datasets:[{data:pieVals,backgroundColor:pieColors,borderWidth:3,borderColor:'transparent',hoverBorderColor:'transparent'}]},
+      options:{responsive:true,maintainAspectRatio:false,cutout:'60%',
+        plugins:{legend:{display:false},tooltip:{callbacks:{label:function(c){
+          var pct=pieTotal>0?Math.round(c.parsed/pieTotal*100):0;
+          return ' '+c.label+': '+fmtC(c.parsed)+' ('+pct+'%)';
+        }}}}}
+    });
+    document.getElementById('pie-legend').innerHTML=pieLabels.map((l,i)=>{
+      var pct=pieTotal>0?Math.round(pieVals[i]/pieTotal*100):0;
+      return '<div style="display:flex;align-items:center;gap:8px;font-size:12px">'+
+        '<span style="width:10px;height:10px;border-radius:50%;background:'+pieColors[i]+';flex-shrink:0;display:inline-block"></span>'+
+        '<span style="flex:1;color:var(--text2)">'+escHtml(l)+'</span>'+
+        '<span style="font-weight:500">'+pct+'%</span>'+
+        '<span style="color:var(--text3);font-size:11px">'+fmtC(pieVals[i])+'</span>'+
+        '</div>';
+    }).join('');
+  } else if(document.getElementById('pie-legend')){
+    document.getElementById('pie-legend').innerHTML='<span style="color:var(--text3);font-size:13px">Sin datos de gastos.</span>';
+  }
 
   // ── Bar chart ─────────────────────────────────────────────────────────────
   if(annualBarChart)annualBarChart.destroy();
