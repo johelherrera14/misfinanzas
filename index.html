@@ -233,12 +233,17 @@
     </div>
   </div>
 
+  <!-- Tooltip -->
+  <div id="bud-tooltip" style="display:none;position:fixed;z-index:500;background:var(--text);color:var(--bg);font-size:12px;padding:6px 10px;border-radius:6px;max-width:220px;line-height:1.4;pointer-events:none;box-shadow:0 4px 12px rgba(0,0,0,.2)"></div>
+
   <!-- Modal: editar celda -->
   <div id="cell-edit-modal" class="modal-backdrop" style="display:none" onclick="if(event.target===this)closeCellModal()">
-    <div class="modal" style="max-width:320px">
+    <div class="modal" style="max-width:340px">
       <div class="modal-title" id="cell-modal-title">Editar importe</div>
       <div style="font-size:12px;color:var(--text2);margin-bottom:12px" id="cell-modal-sub"></div>
-      <input type="number" id="cell-modal-input" min="0" step="0.01" placeholder="0,00" style="font-size:18px;text-align:center;height:48px">
+      <input type="number" id="cell-modal-input" min="0" step="0.01" placeholder="0,00" style="font-size:18px;text-align:center;height:48px;margin-bottom:10px">
+      <div class="field-label" style="margin-bottom:4px">Nota (opcional)</div>
+      <textarea id="cell-modal-note" placeholder="Ej: Incluye gastos de comunidad y garaje..." style="width:100%;height:72px;resize:vertical;font-size:13px;padding:8px 10px;border:0.5px solid var(--border2);border-radius:var(--radius);background:var(--bg);color:var(--text);font-family:inherit;line-height:1.4"></textarea>
       <div class="modal-footer">
         <button class="btn-ghost" onclick="setCellValue(0)">Borrar</button>
         <button class="btn-ghost" onclick="closeCellModal()">Cancelar</button>
@@ -696,16 +701,24 @@ var budStruct=load('fin_bstruct',[
   ]},
 ]);
 var budValues=load('fin_bvals',{});
+var budNotes=load('fin_bnotes',{});
 
 function saveBudStruct(){save('fin_bstruct',budStruct);}
 function saveBudValues(){save('fin_bvals',budValues);}
+function saveBudNotes(){save('fin_bnotes',budNotes);}
 
 function budKey(catId,subId,y,m){return catId+'|'+subId+'|'+y+'|'+m;}
 function getBudVal(catId,subId,y,m){return budValues[budKey(catId,subId,y,m)]||0;}
+function getBudNote(catId,subId,y,m){return budNotes[budKey(catId,subId,y,m)]||'';}
 function setBudVal(catId,subId,y,m,val){
   var k=budKey(catId,subId,y,m);
   if(val===0) delete budValues[k]; else budValues[k]=val;
   saveBudValues();
+}
+function setBudNote(catId,subId,y,m,note){
+  var k=budKey(catId,subId,y,m);
+  if(!note||!note.trim()) delete budNotes[k]; else budNotes[k]=note.trim();
+  saveBudNotes();
 }
 // Cat total for a month
 function catMonthTotal(cat,y,m){
@@ -740,8 +753,10 @@ function openCellEdit(catId,subId,y,m,name,monthName){
   document.getElementById('cell-modal-title').textContent=name;
   document.getElementById('cell-modal-sub').textContent=monthName+' '+y;
   var cur=getBudVal(catId,subId,y,m);
+  var note=getBudNote(catId,subId,y,m);
   var inp=document.getElementById('cell-modal-input');
   inp.value=cur||'';
+  document.getElementById('cell-modal-note').value=note;
   document.getElementById('cell-edit-modal').style.display='flex';
   setTimeout(()=>{inp.select();},50);
 }
@@ -752,13 +767,44 @@ function closeCellModal(){
 function saveCellValue(){
   if(!cellEditCtx)return;
   var v=parseFloat(document.getElementById('cell-modal-input').value)||0;
+  var note=document.getElementById('cell-modal-note').value;
   setBudVal(cellEditCtx.catId,cellEditCtx.subId,cellEditCtx.y,cellEditCtx.m,v);
+  setBudNote(cellEditCtx.catId,cellEditCtx.subId,cellEditCtx.y,cellEditCtx.m,note);
   closeCellModal();
   renderAnnualView();
 }
 function setCellValue(v){
   document.getElementById('cell-modal-input').value=v||'';
   saveCellValue();
+}
+
+// ── TOOLTIP ────────────────────────────────────────────────────────────────
+var tooltipTimer=null;
+function showTooltip(e,catId,subId,y,m){
+  clearTimeout(tooltipTimer);
+  var note=getBudNote(catId,subId,y,m);
+  if(!note) return;
+  tooltipTimer=setTimeout(function(){
+    var el=document.getElementById('bud-tooltip');
+    el.textContent=note;
+    el.style.display='block';
+    positionTooltip(e);
+  },400);
+}
+function moveTooltip(e){
+  positionTooltip(e);
+}
+function hideTooltip(){
+  clearTimeout(tooltipTimer);
+  document.getElementById('bud-tooltip').style.display='none';
+}
+function positionTooltip(e){
+  var el=document.getElementById('bud-tooltip');
+  var x=e.clientX+14, y=e.clientY-10;
+  if(x+230>window.innerWidth) x=e.clientX-230;
+  if(y+60>window.innerHeight) y=e.clientY-60;
+  el.style.left=x+'px';
+  el.style.top=y+'px';
 }
 
 var cellClickTimer=null;
@@ -1156,14 +1202,20 @@ function renderAnnualView(){
           html+='<td style="border-right:0.5px solid var(--border)"></td>';
           for(var mi=0;mi<12;mi++){
             var v=subMonths[mi];
+            var note=getBudNote(cat.id,sub.id,y,mi);
             var isCur=y===now.getFullYear()&&mi===now.getMonth();
             var singleClick='cellSingleClick(\''+cat.id+'\',\''+sub.id+'\','+y+','+mi+',\''+escJs(sub.name)+'\',\''+MONTHS_ES[mi]+'\')';
             var dblClick=v>0?'cellDoubleClick(\''+cat.id+'\',\''+sub.id+'\','+y+','+mi+')" title="Clic: editar · Doble clic: copiar al resto del año':'';
+            var tooltipEvts=v>0?'onmouseover="showTooltip(event,\''+cat.id+'\',\''+sub.id+'\','+y+','+mi+')" onmousemove="moveTooltip(event)" onmouseout="hideTooltip()"':'';
+            var noteIndicator=note?'<span style="position:absolute;top:2px;right:2px;width:5px;height:5px;border-radius:50%;background:#378ADD;display:inline-block"></span>':'';
             html+='<td onclick="'+singleClick+'" '
               +(v>0?'ondblclick="'+dblClick+'"':'')+' '
-              +'style="'+TD+TDCLICK+'background:'+(isCur?'rgba(0,0,0,.03)':'')+'" '
-              +'onmouseover="this.style.background=\'var(--bg2)\'" onmouseout="this.style.background=\''+(isCur?'rgba(0,0,0,.03)':'')+'\'">'
-              +(v>0?fmtC(v):'<span style="color:var(--text3);font-size:11px">+</span>')+'</td>';
+              +tooltipEvts+' '
+              +'style="'+TD+TDCLICK+'background:'+(isCur?'rgba(0,0,0,.03):':'')+';position:relative" '
+              +'onmouseover="this.style.background=\'var(--bg2)\';'+(v>0?'showTooltip(event,\''+cat.id+'\',\''+sub.id+'\','+y+','+mi+'\')':'')+'" '
+              +'onmousemove="moveTooltip(event)" '
+              +'onmouseout="this.style.background=\''+(isCur?'rgba(0,0,0,.03)':'')+'\';hideTooltip()">'
+              +(v>0?fmtC(v)+noteIndicator:'<span style="color:var(--text3);font-size:11px">+</span>')+'</td>';
           }
           html+='<td style="'+TD+'border-left:0.5px solid var(--border);padding-right:6px;color:var(--text2)">'+(subYear>0?fmtC(subYear):'—')+'</td>';
           html+='<td></td>';
@@ -1597,7 +1649,7 @@ function driveShowStatus(msg,color){
 function driveGetAllData(){
   return JSON.stringify({
     transactions,goals,customCats,currency:currencyConfig,
-    budStruct,budValues,monthBudgets
+    budStruct,budValues,budNotes,monthBudgets
   },null,2);
 }
 
@@ -1610,6 +1662,7 @@ function driveApplyData(raw){
     if(d.currency) currencyConfig=d.currency;
     if(d.budStruct) budStruct=d.budStruct;
     if(d.budValues) budValues=d.budValues;
+    if(d.budNotes) budNotes=d.budNotes;
     if(d.monthBudgets) monthBudgets=d.monthBudgets;
     // Persist to localStorage
     saveTx();saveGoals();saveCats();saveBudStruct();saveBudValues();saveMonthBudgets();
