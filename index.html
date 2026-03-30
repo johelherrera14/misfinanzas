@@ -861,7 +861,26 @@ function budDragEnd(){
 var tableDragId=null;
 var tableDragOverId=null;
 
-function tableDragStart(e, catId){
+function renameCat(catId){
+  var cat=budStruct.find(c=>c.id===catId);
+  if(!cat)return;
+  var newName=prompt('Nuevo nombre para "'+cat.name+'":', cat.name);
+  if(!newName||!newName.trim()||newName.trim()===cat.name)return;
+  cat.name=newName.trim();
+  saveBudStruct();
+  renderAnnualView();
+}
+
+function addSubCatInline(catId){
+  var cat=budStruct.find(c=>c.id===catId);
+  if(!cat)return;
+  var name=prompt('Nombre de la nueva subcategoría:');
+  if(!name||!name.trim())return;
+  cat.subs.push({id:'bss'+Date.now(),name:name.trim()});
+  saveBudStruct();
+  budExpanded[catId]=true; // keep expanded
+  renderAnnualView();
+}
   tableDragId=catId;
   e.dataTransfer.effectAllowed='move';
   e.dataTransfer.setData('text/plain', catId);
@@ -1003,7 +1022,7 @@ function renderAnnualView(){
       html+='<td style="padding:7px 4px 7px 0.5rem;font-size:12px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">';
       html+='<span style="color:var(--text3);font-size:13px;margin-right:4px;cursor:grab;vertical-align:middle;user-select:none">⠿</span>';
       html+='<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:'+cat.color+';margin-right:4px;vertical-align:middle"></span>';
-      html+='<span onclick="toggleCat(\''+cat.id+'\')" style="cursor:pointer">';
+      html+='<span onclick="toggleCat(\''+cat.id+'\')" ondblclick="event.stopPropagation();renameCat(\''+cat.id+'\')" style="cursor:pointer" title="Clic: expandir · Doble clic: renombrar">';
       html+='<span style="color:var(--text2);margin-right:3px;font-size:10px">'+(isOpen?'▾':'▸')+'</span>';
       html+=escHtml(cat.name)+'</span></td>';
       html+='<td style="border-right:0.5px solid var(--border)"></td>';
@@ -1040,7 +1059,13 @@ function renderAnnualView(){
           html+='<td></td>';
           html+='</tr>';
         });
-      }
+        // Add subcategory row
+        html+='<tr style="border-bottom:0.5px solid var(--border)">';
+        html+='<td style="padding:5px 4px 5px 2rem">';
+        html+='<button onclick="addSubCatInline(\''+cat.id+'\')" style="background:none;border:0.5px solid var(--border2);border-radius:4px;padding:2px 10px;font-size:11px;color:var(--text2);cursor:pointer;font-family:inherit;transition:all .15s" onmouseover="this.style.background=\'var(--bg2)\'" onmouseout="this.style.background=\'\'">+ subcategoría</button>';
+        html+='</td>';
+        for(var mi2=0;mi2<13;mi2++) html+='<td></td>';
+        html+='<td></td></tr>';
     });
   });
 
