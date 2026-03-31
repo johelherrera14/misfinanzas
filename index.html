@@ -2308,14 +2308,40 @@ function pagosUpdateSummary() {
 
 // Marcar/desmarcar manualmente — también limpia el auto-check
 function pagosToggleItem(catId, subId) {
-  var key = pagosSpentKey(catId, subId);
+  var y = pagosYear, m = pagosMonth;
+  var key = catId+'|'+subId+'|'+y+'|'+m;
+  var alreadySpent = getTxSpent(subId, catId, y, m);
+
   if (pagosChecked[key]) {
+    // Ya estaba marcado → desmarcar
     delete pagosChecked[key];
+    pagosSave();
+    pagosRender();
   } else {
+    // No marcado: si no hay gasto registrado, crear transacción automática
+    if (alreadySpent === 0) {
+      var budgeted = getBudVal(catId, subId, y, m);
+      var cat = budStruct.find(function(c){ return c.id===catId; });
+      var sub = cat && cat.subs.find(function(s){ return s.id===subId; });
+      if (budgeted > 0 && sub) {
+        var dateStr = new Date().toISOString().split('T')[0];
+        transactions.unshift({
+          id: Date.now(),
+          type: 'gasto',
+          desc: sub.name,
+          amount: budgeted,
+          cat: subId+'|'+catId,
+          date: dateStr
+        });
+        sortTx(); saveTx();
+        updateMetrics();
+      }
+    }
+    // Marcar como pagado
     pagosChecked[key] = true;
+    pagosSave();
+    pagosRender();
   }
-  pagosSave();
-  pagosRender();
 }
 
 // Registrar gasto real: modo 'add' acumula, modo 'set' sustituye
