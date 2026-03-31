@@ -818,9 +818,12 @@ function renderCharts(){
     catTotals[label] = (catTotals[label]||0) + t.amount;
     catColors[label] = color;
   });
-  var cats=Object.keys(catTotals);
-  var vals=cats.map(function(c){ return catTotals[c]; });
-  var colors=cats.map(function(c){ return catColors[c]; });
+  // Ordenar de mayor a menor
+  var sorted=Object.keys(catTotals).map(function(c){ return {label:c,val:catTotals[c],color:catColors[c]}; });
+  sorted.sort(function(a,b){ return b.val-a.val; });
+  var cats=sorted.map(function(x){ return x.label; });
+  var vals=sorted.map(function(x){ return x.val; });
+  var colors=sorted.map(function(x){ return x.color; });
   var total=vals.reduce((a,b)=>a+b,0);
   if(doughnutChart)doughnutChart.destroy();
   doughnutChart=new Chart(document.getElementById('chartDoughnut').getContext('2d'),{
