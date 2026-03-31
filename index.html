@@ -211,7 +211,7 @@
         <div class="metric-value" id="pagos-s-total" style="font-size:20px">—</div>
       </div>
       <div class="metric">
-        <div class="metric-label">Ya pagado</div>
+        <div class="metric-label">Gastado este mes</div>
         <div class="metric-value income" id="pagos-s-pagado" style="font-size:20px">—</div>
       </div>
       <div class="metric">
@@ -483,6 +483,69 @@
       <button class="btn-ghost" onclick="closeEditModal()">Cancelar</button>
       <button class="btn-primary" onclick="saveEditTx()" style="flex:1;margin-top:0">Guardar</button>
     </div>
+  </div>
+</div>
+
+
+<!-- Modal: registrar gasto real en Pagos -->
+<div id="pagos-spent-modal" class="modal-backdrop" style="display:none" onclick="if(event.target===this)pagosCloseSpentModal()">
+  <div class="modal" style="max-width:380px">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:1.25rem">
+      <div id="psm-accent" style="width:10px;height:10px;border-radius:50%;flex-shrink:0"></div>
+      <div class="modal-title" id="psm-title" style="margin-bottom:0;flex:1"></div>
+      <button onclick="pagosCloseSpentModal()" style="background:none;border:none;cursor:pointer;color:var(--text3);font-size:20px;line-height:1;padding:0">×</button>
+    </div>
+
+    <!-- Resumen presupuesto/gastado/disponible -->
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:1.25rem">
+      <div style="background:var(--bg2);border-radius:var(--radius);padding:8px 10px;text-align:center">
+        <div style="font-size:10px;color:var(--text2);margin-bottom:3px;text-transform:uppercase;letter-spacing:.04em">Presupuesto</div>
+        <div id="psm-budgeted" style="font-size:14px;font-weight:500;color:var(--text)">—</div>
+      </div>
+      <div style="background:var(--bg2);border-radius:var(--radius);padding:8px 10px;text-align:center">
+        <div style="font-size:10px;color:var(--text2);margin-bottom:3px;text-transform:uppercase;letter-spacing:.04em">Gastado</div>
+        <div id="psm-spent" style="font-size:14px;font-weight:500;color:var(--text)">—</div>
+      </div>
+      <div style="background:var(--bg2);border-radius:var(--radius);padding:8px 10px;text-align:center">
+        <div style="font-size:10px;color:var(--text2);margin-bottom:3px;text-transform:uppercase;letter-spacing:.04em">Disponible</div>
+        <div id="psm-available" style="font-size:14px;font-weight:500;color:var(--green)">—</div>
+      </div>
+    </div>
+
+    <div style="border-top:0.5px solid var(--border);padding-top:1rem">
+      <!-- Añadir gasto (acumula) -->
+      <div style="margin-bottom:1rem">
+        <div class="field-label" style="margin-bottom:6px">Añadir gasto de esta semana</div>
+        <div style="display:flex;gap:8px">
+          <input type="number" id="psm-inp-add" placeholder="0,00" min="0" step="0.01"
+            style="flex:1;font-size:15px;text-align:right"
+            onkeydown="if(event.key==='Enter')pagosSaveSpentAdd()">
+          <button class="btn-primary" onclick="pagosSaveSpentAdd()" style="width:auto;padding:0 18px;margin-top:0">+ Acumular</button>
+        </div>
+      </div>
+
+      <!-- Separador -->
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:1rem">
+        <div style="flex:1;height:0.5px;background:var(--border)"></div>
+        <span style="font-size:11px;color:var(--text3)">o ajustar el total</span>
+        <div style="flex:1;height:0.5px;background:var(--border)"></div>
+      </div>
+
+      <!-- Ajustar total (sustituye) -->
+      <div>
+        <div class="field-label" style="margin-bottom:6px">Total gastado hasta ahora</div>
+        <div style="display:flex;gap:8px">
+          <input type="number" id="psm-inp-total" placeholder="0,00" min="0" step="0.01"
+            style="flex:1;font-size:15px;text-align:right"
+            onkeydown="if(event.key==='Enter')pagosSaveSpentTotal()">
+          <button class="btn-primary" onclick="pagosSaveSpentTotal()" style="width:auto;padding:0 18px;margin-top:0;background:var(--text2)">Fijar total</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Campos ocultos -->
+    <input type="hidden" id="psm-catId">
+    <input type="hidden" id="psm-subId">
   </div>
 </div>
 
@@ -2008,7 +2071,7 @@ function driveGetAllData(){
   return JSON.stringify({
     transactions,goals,customCats,currency:currencyConfig,
     budStruct,budValues,budNotes,monthBudgets,
-    pagosChecked
+    pagosChecked,pagosSpent
   },null,2);
 }
 
@@ -2024,6 +2087,7 @@ function driveApplyData(raw){
     if(d.budNotes) budNotes=d.budNotes;
     if(d.monthBudgets) monthBudgets=d.monthBudgets;
     if(d.pagosChecked) pagosChecked=d.pagosChecked;
+    if(d.pagosSpent) pagosSpent=d.pagosSpent;
     // Persist to localStorage
     saveTx();saveGoals();saveCats();saveBudStruct();saveBudValues();saveMonthBudgets();pagosSave();
     save('fin_currency',currencyConfig);
@@ -2109,11 +2173,11 @@ function driveLoad(){
 }
 
 // ── PAGOS ──────────────────────────────────────────────────────────────────
-// Estado: año/mes seleccionado y mapa de pagos marcados
+// Estado: año/mes seleccionado
 var pagosYear = new Date().getFullYear();
 var pagosMonth = new Date().getMonth(); // 0-based
 
-// pagosChecked: { "catId|subId|YYYY|M": true }
+// pagosChecked: { "catId|subId|YYYY|M": true|false }  → marcado manualmente
 var pagosChecked = load('fin_pagos_checked',{
   "bs2|bs2s1|2026|2": true,
   "bs2|bs2s4|2026|2": true,
@@ -2122,12 +2186,27 @@ var pagosChecked = load('fin_pagos_checked',{
   "bs6|bs6s2|2026|2": true,
 });
 
+// pagosSpent: { "catId|subId|YYYY|M": amount }  → gasto real acumulado
+var pagosSpent = load('fin_pagos_spent', {});
+
 function pagosSave() {
   save('fin_pagos_checked', pagosChecked);
+  save('fin_pagos_spent', pagosSpent);
 }
 
-function pagosCheckedKey(catId, subId) {
-  return catId + '|' + subId + '|' + pagosYear + '|' + pagosMonth;
+function pagosSpentKey(catId, subId, y, m) {
+  return catId + '|' + subId + '|' + (y||pagosYear) + '|' + (m!==undefined?m:pagosMonth);
+}
+
+function getPagosSpent(catId, subId, y, m) {
+  return pagosSpent[pagosSpentKey(catId, subId, y, m)] || 0;
+}
+
+function setPagosSpent(catId, subId, val) {
+  var k = pagosSpentKey(catId, subId);
+  if (!val || val <= 0) delete pagosSpent[k];
+  else pagosSpent[k] = Math.round(val * 100) / 100;
+  pagosSave();
 }
 
 function pagosChangeMonth(delta) {
@@ -2138,73 +2217,144 @@ function pagosChangeMonth(delta) {
 }
 
 function pagosResetMonth() {
-  if (!confirm('¿Desmarcar todos los pagos de este mes?')) return;
-  var prefix = '|' + pagosYear + '|' + pagosMonth;
+  if (!confirm('¿Reiniciar todos los pagos y gastos registrados de este mes?')) return;
+  var y = pagosYear, m = pagosMonth;
   Object.keys(pagosChecked).forEach(function(k) {
-    if (k.indexOf(prefix, k.length - prefix.length) !== -1 || k.endsWith(prefix)) delete pagosChecked[k];
+    var p = k.split('|');
+    if (p.length >= 4 && parseInt(p[2]) === y && parseInt(p[3]) === m) delete pagosChecked[k];
   });
-  // Safer: delete all keys ending with the month/year combo
-  var toDelete = Object.keys(pagosChecked).filter(function(k){
-    var parts = k.split('|');
-    return parts.length >= 4 && parseInt(parts[2]) === pagosYear && parseInt(parts[3]) === pagosMonth;
+  Object.keys(pagosSpent).forEach(function(k) {
+    var p = k.split('|');
+    if (p.length >= 4 && parseInt(p[2]) === y && parseInt(p[3]) === m) delete pagosSpent[k];
   });
-  toDelete.forEach(function(k){ delete pagosChecked[k]; });
   pagosSave();
   pagosRender();
 }
 
 function pagosUpdateSummary() {
   var y = pagosYear, m = pagosMonth;
-  var totalBudget = 0, totalDone = 0;
+  var totalBudget = 0, totalSpent = 0;
   var expCats = budStruct.filter(function(c){ return c.type === 'expense'; });
   expCats.forEach(function(cat) {
     cat.subs.forEach(function(sub) {
-      var val = getBudVal(cat.id, sub.id, y, m);
-      totalBudget += val;
-      var key = cat.id + '|' + sub.id + '|' + y + '|' + m;
-      if (pagosChecked[key]) totalDone += val;
+      var budgeted = getBudVal(cat.id, sub.id, y, m);
+      var spent = getPagosSpent(cat.id, sub.id, y, m);
+      totalBudget += budgeted;
+      totalSpent += spent;
     });
   });
-  var pending = totalBudget - totalDone;
-  var pct = totalBudget > 0 ? Math.round((totalDone / totalBudget) * 100) : 0;
-  var totalEl = document.getElementById('pagos-s-total');
+  var pending = totalBudget - totalSpent;
+  var pct = totalBudget > 0 ? Math.min(100, Math.round((totalSpent / totalBudget) * 100)) : 0;
+
+  var totalEl  = document.getElementById('pagos-s-total');
   var pagadoEl = document.getElementById('pagos-s-pagado');
-  var pendEl = document.getElementById('pagos-s-pendiente');
+  var pendEl   = document.getElementById('pagos-s-pendiente');
   var progFill = document.getElementById('pagos-prog-fill');
-  var progLabel = document.getElementById('pagos-prog-label');
-  if (totalEl) totalEl.textContent = fmt(totalBudget);
-  if (pagadoEl) pagadoEl.textContent = fmt(totalDone);
+  var progLabel= document.getElementById('pagos-prog-label');
+
+  if (totalEl)  totalEl.textContent  = fmt(totalBudget);
+  if (pagadoEl) pagadoEl.textContent = fmt(totalSpent);
   if (pendEl) {
-    pendEl.textContent = fmt(pending);
-    pendEl.style.color = pending > 0 ? 'var(--amber)' : 'var(--green)';
+    pendEl.textContent = fmt(Math.max(0, pending));
+    pendEl.style.color = pending <= 0 ? 'var(--green)' : 'var(--amber)';
   }
-  if (progFill) { progFill.style.width = pct + '%'; progFill.style.background = pct >= 100 ? 'var(--green)' : 'var(--blue)'; }
+  if (progFill)  { progFill.style.width = pct + '%'; progFill.style.background = pct >= 100 ? 'var(--green)' : 'var(--blue)'; }
   if (progLabel) progLabel.textContent = pct + '%';
   var emptyEl = document.getElementById('pagos-empty');
   if (emptyEl) emptyEl.style.display = totalBudget === 0 ? '' : 'none';
 }
 
+// Marcar/desmarcar manualmente — también limpia el auto-check
 function pagosToggleItem(catId, subId) {
-  var y = pagosYear, m = pagosMonth;
-  var key = catId + '|' + subId + '|' + y + '|' + m;
-  if (pagosChecked[key]) delete pagosChecked[key];
-  else pagosChecked[key] = true;
+  var key = pagosSpentKey(catId, subId);
+  if (pagosChecked[key]) {
+    delete pagosChecked[key];
+  } else {
+    pagosChecked[key] = true;
+  }
   pagosSave();
   pagosRender();
 }
 
-// Editar importe desde Pagos → escribe en budValues igual que Presupuesto
-function pagosEditAmount(catId, subId) {
-  var y = pagosYear, m = pagosMonth;
+// Registrar gasto real: modo 'add' acumula, modo 'set' sustituye
+function pagosRegisterSpent(catId, subId, newVal, mode) {
+  var budgeted = getBudVal(catId, subId, pagosYear, pagosMonth);
+  var current  = getPagosSpent(catId, subId, pagosYear, pagosMonth);
+  var result;
+  if (mode === 'add') {
+    result = Math.round((current + newVal) * 100) / 100;
+  } else {
+    result = Math.round(newVal * 100) / 100;
+  }
+  setPagosSpent(catId, subId, result);
+  // Auto-check si gasto >= presupuestado
+  var key = pagosSpentKey(catId, subId);
+  if (budgeted > 0 && result >= budgeted) {
+    pagosChecked[key] = true;
+  } else if (pagosChecked[key] === true && result < budgeted) {
+    // Solo desmarcar el auto-check; si fue marcado manualmente se respeta
+    // Usamos 'auto' para distinguir, pero simplificamos: si < presupuestado, desmarcamos
+    delete pagosChecked[key];
+  }
+  pagosSave();
+  pagosRender();
+}
+
+// Editar importe presupuestado desde Pagos → abre modal de Presupuesto
+function pagosEditBudget(catId, subId) {
   var cat = budStruct.find(function(c){ return c.id === catId; });
   var sub = cat && cat.subs.find(function(s){ return s.id === subId; });
   if (!cat || !sub) return;
-  openCellEdit(catId, subId, y, m, sub.name, MONTHS_ES[m]);
+  openCellEdit(catId, subId, pagosYear, pagosMonth, sub.name, MONTHS_ES[pagosMonth]);
+}
+
+// Abrir mini-modal para registrar gasto real
+function pagosOpenSpentModal(catId, subId, catColor) {
+  var cat = budStruct.find(function(c){ return c.id === catId; });
+  var sub = cat && cat.subs.find(function(s){ return s.id === subId; });
+  if (!cat || !sub) return;
+  var budgeted = getBudVal(catId, subId, pagosYear, pagosMonth);
+  var current  = getPagosSpent(catId, subId, pagosYear, pagosMonth);
+  var available = Math.max(0, budgeted - current);
+
+  var modal = document.getElementById('pagos-spent-modal');
+  document.getElementById('psm-title').textContent   = sub.name;
+  document.getElementById('psm-budgeted').textContent = fmt(budgeted);
+  document.getElementById('psm-spent').textContent    = fmt(current);
+  document.getElementById('psm-available').textContent= fmt(available);
+  document.getElementById('psm-accent').style.background = catColor;
+  document.getElementById('psm-inp-add').value  = '';
+  document.getElementById('psm-inp-total').value = current > 0 ? current : '';
+  document.getElementById('psm-catId').value = catId;
+  document.getElementById('psm-subId').value = subId;
+  modal.style.display = 'flex';
+  setTimeout(function(){ document.getElementById('psm-inp-add').focus(); }, 60);
+}
+
+function pagosCloseSpentModal() {
+  document.getElementById('pagos-spent-modal').style.display = 'none';
+}
+
+function pagosSaveSpentAdd() {
+  var catId = document.getElementById('psm-catId').value;
+  var subId = document.getElementById('psm-subId').value;
+  var val = parseFloat(document.getElementById('psm-inp-add').value);
+  if (isNaN(val) || val <= 0) { alert('Introduce un importe válido.'); return; }
+  pagosCloseSpentModal();
+  pagosRegisterSpent(catId, subId, val, 'add');
+}
+
+function pagosSaveSpentTotal() {
+  var catId = document.getElementById('psm-catId').value;
+  var subId = document.getElementById('psm-subId').value;
+  var val = parseFloat(document.getElementById('psm-inp-total').value);
+  if (isNaN(val) || val < 0) { alert('Introduce un importe válido.'); return; }
+  pagosCloseSpentModal();
+  pagosRegisterSpent(catId, subId, val, 'set');
 }
 
 function pagosRender() {
   var y = pagosYear, m = pagosMonth;
-  // Update month label
   var labelEl = document.getElementById('pagos-month-label');
   if (labelEl) labelEl.textContent = MONTHS_ES[m] + ' ' + y;
 
@@ -2215,93 +2365,148 @@ function pagosRender() {
   var expCats = budStruct.filter(function(c){ return c.type === 'expense'; });
 
   expCats.forEach(function(cat) {
-    var catTotal = 0, catDone = 0;
+    var catBudget = 0, catSpent = 0;
     cat.subs.forEach(function(sub) {
-      var val = getBudVal(cat.id, sub.id, y, m);
-      catTotal += val;
-      var key = cat.id + '|' + sub.id + '|' + y + '|' + m;
-      if (pagosChecked[key]) catDone += val;
+      catBudget += getBudVal(cat.id, sub.id, y, m);
+      catSpent  += getPagosSpent(cat.id, sub.id, y, m);
     });
 
     var block = document.createElement('div');
     block.className = 'card';
     block.style.cssText = 'padding:0;overflow:hidden;margin-bottom:10px';
 
-    // Header de categoría
-    var hdr = document.createElement('div');
-    hdr.style.cssText = 'display:flex;align-items:center;justify-content:space-between;padding:0.75rem 1.25rem;background:var(--bg2);cursor:pointer;user-select:none';
-    hdr.onclick = function() {
-      var b = document.getElementById('pagos-body-' + cat.id);
-      b.style.display = b.style.display === 'none' ? 'block' : 'none';
-    };
+    // ── Header categoría ──
     var doneCount = cat.subs.filter(function(sub){
-      var key = cat.id + '|' + sub.id + '|' + y + '|' + m;
-      return !!pagosChecked[key];
+      return !!pagosChecked[pagosSpentKey(cat.id, sub.id, y, m)];
     }).length;
     var subsWithVal = cat.subs.filter(function(sub){ return getBudVal(cat.id, sub.id, y, m) > 0; }).length;
+    var catAvail = Math.max(0, catBudget - catSpent);
+
+    var hdr = document.createElement('div');
+    hdr.style.cssText = 'display:flex;align-items:center;justify-content:space-between;padding:0.75rem 1.25rem;background:var(--bg2);cursor:pointer;user-select:none';
+    hdr.onclick = (function(cid){ return function() {
+      var b = document.getElementById('pagos-body-' + cid);
+      b.style.display = b.style.display === 'none' ? 'block' : 'none';
+    };})(cat.id);
+
     hdr.innerHTML =
-      '<div style="display:flex;align-items:center;gap:10px">' +
+      '<div style="display:flex;align-items:center;gap:10px;min-width:0">' +
         '<div style="width:10px;height:10px;border-radius:50%;background:' + cat.color + ';flex-shrink:0"></div>' +
         '<span style="font-size:14px;font-weight:500;color:var(--text)">' + escHtml(cat.name) + '</span>' +
-        '<span style="font-size:12px;color:var(--text2)">' + doneCount + '/' + subsWithVal + ' pagados · ' + fmt(catDone) + ' de ' + fmt(catTotal) + '</span>' +
+        '<span style="font-size:12px;color:var(--text2)">' + doneCount + '/' + subsWithVal + ' · gastado ' + fmt(catSpent) + ' · disponible ' + fmt(catAvail) + '</span>' +
       '</div>' +
-      '<span style="font-size:11px;color:var(--text3)">&#x25BE;</span>';
+      '<span style="font-size:11px;color:var(--text3);flex-shrink:0">&#x25BE;</span>';
     block.appendChild(hdr);
 
-    // Body con subcategorías
+    // ── Body subcategorías ──
     var body = document.createElement('div');
     body.id = 'pagos-body-' + cat.id;
     body.style.display = 'block';
 
     if (cat.subs.length === 0) {
-      var empty = document.createElement('div');
-      empty.style.cssText = 'padding:10px 1.25rem;font-size:13px;color:var(--text3);border-top:0.5px solid var(--border)';
-      empty.textContent = 'Sin subcategorías. Añádelas en Presupuesto → Gestionar estructura.';
-      body.appendChild(empty);
+      var emptyRow = document.createElement('div');
+      emptyRow.style.cssText = 'padding:10px 1.25rem;font-size:13px;color:var(--text3);border-top:0.5px solid var(--border)';
+      emptyRow.textContent = 'Sin subcategorías. Añádelas en Presupuesto → Gestionar estructura.';
+      body.appendChild(emptyRow);
     }
 
     cat.subs.forEach(function(sub) {
-      var val = getBudVal(cat.id, sub.id, y, m);
-      var key = cat.id + '|' + sub.id + '|' + y + '|' + m;
-      var isDone = !!pagosChecked[key];
+      var budgeted  = getBudVal(cat.id, sub.id, y, m);
+      var spent     = getPagosSpent(cat.id, sub.id, y, m);
+      var available = Math.max(0, budgeted - spent);
+      var overBudget = spent > budgeted && budgeted > 0;
+      var key       = pagosSpentKey(cat.id, sub.id, y, m);
+      var isDone    = !!pagosChecked[key];
+      var pct       = budgeted > 0 ? Math.min(100, Math.round(spent / budgeted * 100)) : 0;
 
       var row = document.createElement('div');
-      row.style.cssText = 'display:flex;align-items:center;gap:10px;padding:9px 1.25rem;border-top:0.5px solid var(--border)';
+      row.style.cssText = 'padding:10px 1.25rem;border-top:0.5px solid var(--border)';
+
+      // Línea principal
+      var mainLine = document.createElement('div');
+      mainLine.style.cssText = 'display:flex;align-items:center;gap:10px;margin-bottom:' + (budgeted > 0 ? '8px' : '0');
 
       // Círculo check
       var checkDiv = document.createElement('div');
-      checkDiv.style.cssText = 'width:18px;height:18px;border-radius:50%;border:0.5px solid ' + (isDone ? cat.color : 'var(--border2)') + ';background:' + (isDone ? cat.color : 'transparent') + ';display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;transition:all .15s';
+      var chkColor = isDone ? cat.color : (spent > 0 ? cat.color+'40' : 'transparent');
+      var chkBorder= isDone ? cat.color : 'var(--border2)';
+      checkDiv.style.cssText = 'width:18px;height:18px;border-radius:50%;border:0.5px solid ' + chkBorder + ';background:' + chkColor + ';display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;transition:all .15s';
       if (isDone) checkDiv.innerHTML = '<svg width="10" height="8" viewBox="0 0 10 8" fill="none"><path d="M1 4L3.5 6.5L9 1" stroke="white" stroke-width="1.5" stroke-linecap="round"/></svg>';
-      checkDiv.onclick = (function(cid, sid){ return function(){ pagosToggleItem(cid, sid); }; })(cat.id, sub.id);
+      checkDiv.title = isDone ? 'Marcado como pagado (clic para desmarcar)' : 'Marcar como pagado';
+      checkDiv.onclick = (function(cid,sid){ return function(){ pagosToggleItem(cid,sid); }; })(cat.id, sub.id);
 
       // Nombre
       var nameSpan = document.createElement('span');
       nameSpan.style.cssText = 'flex:1;font-size:14px;color:' + (isDone ? 'var(--text3)' : 'var(--text)') + ';text-decoration:' + (isDone ? 'line-through' : 'none');
       nameSpan.textContent = sub.name;
 
-      // Importe — clic abre modal de Presupuesto
-      var amtBtn = document.createElement('button');
-      amtBtn.style.cssText = 'font-size:13px;font-weight:500;color:' + (isDone ? 'var(--text3)' : 'var(--text)') + ';background:none;border:0.5px solid ' + (val > 0 ? 'var(--border2)' : 'var(--border)') + ';border-radius:var(--radius);padding:3px 10px;cursor:pointer;min-width:80px;text-align:right;font-family:inherit;transition:all .15s';
-      amtBtn.textContent = val > 0 ? fmt(val) : '— editar';
-      amtBtn.title = 'Clic para editar importe';
-      amtBtn.onmouseover = function(){ this.style.borderColor = 'var(--blue)'; this.style.color = 'var(--blue)'; };
-      amtBtn.onmouseout = function(){ this.style.borderColor = val > 0 ? 'var(--border2)' : 'var(--border)'; this.style.color = isDone ? 'var(--text3)' : 'var(--text)'; };
-      amtBtn.onclick = (function(cid, sid){ return function(){ pagosEditAmount(cid, sid); }; })(cat.id, sub.id);
+      // Bloque derecha: gastado / presupuestado + botón +
+      var rightDiv = document.createElement('div');
+      rightDiv.style.cssText = 'display:flex;align-items:center;gap:6px;flex-shrink:0';
 
-      // Nota si existe
-      var note = getBudNote(cat.id, sub.id, y, m);
-      if (note) {
-        var noteSpan = document.createElement('span');
-        noteSpan.title = note;
-        noteSpan.style.cssText = 'width:7px;height:7px;border-radius:50%;background:var(--blue);flex-shrink:0;display:inline-block';
-        row.appendChild(checkDiv);
-        row.appendChild(nameSpan);
-        row.appendChild(amtBtn);
-        row.appendChild(noteSpan);
-      } else {
-        row.appendChild(checkDiv);
-        row.appendChild(nameSpan);
-        row.appendChild(amtBtn);
+      // Importe gastado (editable → abre modal)
+      var spentBtn = document.createElement('button');
+      var spentColor = overBudget ? 'var(--red)' : (spent > 0 ? cat.color : 'var(--text3)');
+      spentBtn.style.cssText = 'font-size:13px;font-weight:500;color:' + spentColor + ';background:none;border:0.5px solid var(--border);border-radius:var(--radius);padding:3px 8px;cursor:pointer;min-width:64px;text-align:right;font-family:inherit;transition:all .15s';
+      spentBtn.textContent = spent > 0 ? fmt(spent) : '0';
+      spentBtn.title = 'Gasto real · clic para registrar';
+      spentBtn.onmouseover = function(){ this.style.borderColor='var(--blue)'; };
+      spentBtn.onmouseout  = function(){ this.style.borderColor='var(--border)'; };
+      spentBtn.onclick = (function(cid,sid,cc){ return function(){ pagosOpenSpentModal(cid,sid,cc); }; })(cat.id, sub.id, cat.color);
+
+      // Separador "/"
+      var sep = document.createElement('span');
+      sep.style.cssText = 'font-size:12px;color:var(--text3)';
+      sep.textContent = '/';
+
+      // Importe presupuestado (editable → modal de presupuesto)
+      var budBtn = document.createElement('button');
+      budBtn.style.cssText = 'font-size:13px;color:var(--text2);background:none;border:0.5px solid var(--border);border-radius:var(--radius);padding:3px 8px;cursor:pointer;min-width:64px;text-align:right;font-family:inherit;transition:all .15s';
+      budBtn.textContent = budgeted > 0 ? fmt(budgeted) : '— ppto';
+      budBtn.title = 'Presupuestado · clic para editar';
+      budBtn.onmouseover = function(){ this.style.borderColor='var(--purple)'; this.style.color='var(--purple)'; };
+      budBtn.onmouseout  = function(){ this.style.borderColor='var(--border)'; this.style.color='var(--text2)'; };
+      budBtn.onclick = (function(cid,sid){ return function(){ pagosEditBudget(cid,sid); }; })(cat.id, sub.id);
+
+      // Botón +
+      var addBtn = document.createElement('button');
+      addBtn.style.cssText = 'width:24px;height:24px;border-radius:50%;border:0.5px solid var(--border2);background:none;cursor:pointer;font-size:15px;color:var(--text2);display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all .15s;line-height:1';
+      addBtn.textContent = '+';
+      addBtn.title = 'Registrar gasto';
+      addBtn.onmouseover = function(){ this.style.background=cat.color; this.style.color='#fff'; this.style.borderColor=cat.color; };
+      addBtn.onmouseout  = function(){ this.style.background='none'; this.style.color='var(--text2)'; this.style.borderColor='var(--border2)'; };
+      addBtn.onclick = (function(cid,sid,cc){ return function(){ pagosOpenSpentModal(cid,sid,cc); }; })(cat.id, sub.id, cat.color);
+
+      rightDiv.appendChild(spentBtn);
+      rightDiv.appendChild(sep);
+      rightDiv.appendChild(budBtn);
+      rightDiv.appendChild(addBtn);
+
+      mainLine.appendChild(checkDiv);
+      mainLine.appendChild(nameSpan);
+      mainLine.appendChild(rightDiv);
+      row.appendChild(mainLine);
+
+      // Barra de progreso (solo si hay presupuesto)
+      if (budgeted > 0) {
+        var barWrap = document.createElement('div');
+        barWrap.style.cssText = 'display:flex;align-items:center;gap:8px;padding-left:28px';
+        var barBg = document.createElement('div');
+        barBg.style.cssText = 'flex:1;height:4px;background:var(--bg3);border-radius:2px;overflow:hidden';
+        var barFill = document.createElement('div');
+        var barColor = overBudget ? 'var(--red)' : cat.color;
+        barFill.style.cssText = 'height:100%;border-radius:2px;background:' + barColor + ';width:' + pct + '%;transition:width .4s';
+        barBg.appendChild(barFill);
+        var barLabel = document.createElement('span');
+        barLabel.style.cssText = 'font-size:11px;color:' + (overBudget ? 'var(--red)' : 'var(--text3)') + ';white-space:nowrap;min-width:80px;text-align:right';
+        if (overBudget) {
+          barLabel.textContent = '+' + fmt(spent - budgeted) + ' sobre ppto';
+        } else {
+          barLabel.textContent = fmt(available) + ' disponible';
+        }
+        barWrap.appendChild(barBg);
+        barWrap.appendChild(barLabel);
+        row.appendChild(barWrap);
       }
 
       body.appendChild(row);
@@ -2325,7 +2530,7 @@ fillCat(getCatsByType('ingreso'));
 updateMetrics();renderRecent();
 setTimeout(renderCharts,100);
 setTimeout(driveInit,1000);
-document.addEventListener('keydown',function(e){if(e.key==='Escape')closeEditModal();});
+document.addEventListener('keydown',function(e){if(e.key==='Escape'){closeEditModal();pagosCloseSpentModal();}});
 </script>
 <div id="bud-tooltip" style="display:none;position:fixed;z-index:500;background:var(--text);color:var(--bg);font-size:12px;padding:6px 10px;border-radius:6px;max-width:220px;line-height:1.4;pointer-events:none;box-shadow:0 4px 12px rgba(0,0,0,.2)"></div>
 </body>
