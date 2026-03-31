@@ -115,9 +115,9 @@
     <div class="logo">mis<span>finanzas</span></div>
     <nav class="nav">
       <button class="nav-btn active" onclick="showTab('resumen',this)">Resumen</button>
-      <button class="nav-btn" onclick="showTab('transacciones',this)">Transacciones</button>
       <button class="nav-btn" onclick="showTab('presupuesto',this)">Presupuesto</button>
       <button class="nav-btn" onclick="showTab('pagos',this)">Pagos</button>
+      <button class="nav-btn" onclick="showTab('transacciones',this)">Transacciones</button>
       <button class="nav-btn" onclick="showTab('metas',this)">Metas</button>
       <button class="nav-btn" onclick="showTab('categorias',this)">Categorías</button>
       <button class="nav-btn" onclick="showTab('config',this)">Configuración</button>
@@ -199,7 +199,7 @@
         <button onclick="pagosChangeMonth(1)" style="background:none;border:0.5px solid var(--border2);border-radius:var(--radius);width:30px;height:30px;cursor:pointer;font-size:16px;color:var(--text2);display:flex;align-items:center;justify-content:center">&#x203a;</button>
       </div>
       <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
-        <span style="font-size:11px;color:var(--text3)">Los importes se editan aquí o en Presupuesto</span>
+        <span style="font-size:11px;color:var(--text3)">Los gastos vienen de Transacciones · importes en Presupuesto</span>
         <button onclick="pagosResetMonth()" class="btn-sm" style="font-size:12px;padding:6px 14px;color:var(--amber)">&#x21ba; Reiniciar pagos del mes</button>
       </div>
     </div>
@@ -487,67 +487,6 @@
 </div>
 
 
-<!-- Modal: registrar gasto real en Pagos -->
-<div id="pagos-spent-modal" class="modal-backdrop" style="display:none" onclick="if(event.target===this)pagosCloseSpentModal()">
-  <div class="modal" style="max-width:380px">
-    <div style="display:flex;align-items:center;gap:10px;margin-bottom:1.25rem">
-      <div id="psm-accent" style="width:10px;height:10px;border-radius:50%;flex-shrink:0"></div>
-      <div class="modal-title" id="psm-title" style="margin-bottom:0;flex:1"></div>
-      <button onclick="pagosCloseSpentModal()" style="background:none;border:none;cursor:pointer;color:var(--text3);font-size:20px;line-height:1;padding:0">×</button>
-    </div>
-
-    <!-- Resumen presupuesto/gastado/disponible -->
-    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:1.25rem">
-      <div style="background:var(--bg2);border-radius:var(--radius);padding:8px 10px;text-align:center">
-        <div style="font-size:10px;color:var(--text2);margin-bottom:3px;text-transform:uppercase;letter-spacing:.04em">Presupuesto</div>
-        <div id="psm-budgeted" style="font-size:14px;font-weight:500;color:var(--text)">—</div>
-      </div>
-      <div style="background:var(--bg2);border-radius:var(--radius);padding:8px 10px;text-align:center">
-        <div style="font-size:10px;color:var(--text2);margin-bottom:3px;text-transform:uppercase;letter-spacing:.04em">Gastado</div>
-        <div id="psm-spent" style="font-size:14px;font-weight:500;color:var(--text)">—</div>
-      </div>
-      <div style="background:var(--bg2);border-radius:var(--radius);padding:8px 10px;text-align:center">
-        <div style="font-size:10px;color:var(--text2);margin-bottom:3px;text-transform:uppercase;letter-spacing:.04em">Disponible</div>
-        <div id="psm-available" style="font-size:14px;font-weight:500;color:var(--green)">—</div>
-      </div>
-    </div>
-
-    <div style="border-top:0.5px solid var(--border);padding-top:1rem">
-      <!-- Añadir gasto (acumula) -->
-      <div style="margin-bottom:1rem">
-        <div class="field-label" style="margin-bottom:6px">Añadir gasto de esta semana</div>
-        <div style="display:flex;gap:8px">
-          <input type="number" id="psm-inp-add" placeholder="0,00" min="0" step="0.01"
-            style="flex:1;font-size:15px;text-align:right"
-            onkeydown="if(event.key==='Enter')pagosSaveSpentAdd()">
-          <button class="btn-primary" onclick="pagosSaveSpentAdd()" style="width:auto;padding:0 18px;margin-top:0">+ Acumular</button>
-        </div>
-      </div>
-
-      <!-- Separador -->
-      <div style="display:flex;align-items:center;gap:8px;margin-bottom:1rem">
-        <div style="flex:1;height:0.5px;background:var(--border)"></div>
-        <span style="font-size:11px;color:var(--text3)">o ajustar el total</span>
-        <div style="flex:1;height:0.5px;background:var(--border)"></div>
-      </div>
-
-      <!-- Ajustar total (sustituye) -->
-      <div>
-        <div class="field-label" style="margin-bottom:6px">Total gastado hasta ahora</div>
-        <div style="display:flex;gap:8px">
-          <input type="number" id="psm-inp-total" placeholder="0,00" min="0" step="0.01"
-            style="flex:1;font-size:15px;text-align:right"
-            onkeydown="if(event.key==='Enter')pagosSaveSpentTotal()">
-          <button class="btn-primary" onclick="pagosSaveSpentTotal()" style="width:auto;padding:0 18px;margin-top:0;background:var(--text2)">Fijar total</button>
-        </div>
-      </div>
-    </div>
-
-    <!-- Campos ocultos -->
-    <input type="hidden" id="psm-catId">
-    <input type="hidden" id="psm-subId">
-  </div>
-</div>
 
 </main>
 
@@ -623,13 +562,18 @@ function getCatsByType(type){return customCats.filter(c=>c.type===type).map(c=>c
 function thisMonthDate(day){var d=new Date();d.setDate(day);return d.toISOString().split('T')[0];}
 
 var transactions=load('fin_tx',[
-  {id:1,type:'ingreso',desc:'Nómina',amount:2200,cat:'Sueldo',date:thisMonthDate(1)},
-  {id:2,type:'gasto',desc:'Alquiler',amount:750,cat:'Hogar',date:thisMonthDate(2)},
-  {id:3,type:'gasto',desc:'Mercadona',amount:95,cat:'Alimentación',date:thisMonthDate(5)},
-  {id:4,type:'gasto',desc:'Metro mensual',amount:54,cat:'Transporte',date:thisMonthDate(6)},
-  {id:5,type:'gasto',desc:'Cine + cena',amount:42,cat:'Ocio',date:thisMonthDate(10)},
-  {id:6,type:'ingreso',desc:'Trabajo freelance',amount:380,cat:'Freelance',date:thisMonthDate(15)},
-  {id:7,type:'gasto',desc:'Farmacia',amount:28,cat:'Salud',date:thisMonthDate(18)},
+  {id:1,type:'ingreso',desc:'Nómina marzo',amount:2200,cat:'bs1s1|bs1',date:thisMonthDate(1)},
+  {id:2,type:'gasto',desc:'Alquiler',amount:780,cat:'bs2s1|bs2',date:thisMonthDate(2)},
+  {id:3,type:'gasto',desc:'Mercadona',amount:65,cat:'bs3s1|bs3',date:thisMonthDate(5)},
+  {id:4,type:'gasto',desc:'Abono transporte',amount:54,cat:'bs4s1|bs4',date:thisMonthDate(6)},
+  {id:5,type:'gasto',desc:'Restaurante',amount:38,cat:'bs3s2|bs3',date:thisMonthDate(8)},
+  {id:6,type:'gasto',desc:'Comunidad',amount:45,cat:'bs2s5|bs2',date:thisMonthDate(9)},
+  {id:7,type:'gasto',desc:'Netflix + Spotify',amount:35,cat:'bs6s2|bs6',date:thisMonthDate(10)},
+  {id:8,type:'ingreso',desc:'Freelance diseño',amount:350,cat:'bs1s2|bs1',date:thisMonthDate(15)},
+  {id:9,type:'gasto',desc:'Mercadona',amount:72,cat:'bs3s1|bs3',date:thisMonthDate(16)},
+  {id:10,type:'gasto',desc:'Farmacia',amount:18,cat:'bs5s1|bs5',date:thisMonthDate(18)},
+  {id:11,type:'gasto',desc:'Internet y móvil',amount:55,cat:'bs2s4|bs2',date:thisMonthDate(20)},
+  {id:12,type:'gasto',desc:'Gasolina',amount:60,cat:'bs4s2|bs4',date:thisMonthDate(22)},
 ]);
 var goals=load('fin_goals',[
   {name:'Vacaciones de verano',target:1500,saved:620,icon:'✈'},
@@ -657,12 +601,90 @@ function showTab(t,btn){
 function setType(t){
   txType=t;
   var ri=document.getElementById('rb-ingreso'), rg=document.getElementById('rb-gasto');
-  if(t==='ingreso'){ri.className='radio-btn active-income';rg.className='radio-btn';fillCat(getCatsByType('ingreso'));}
-  else{rg.className='radio-btn active-expense';ri.className='radio-btn';fillCat(getCatsByType('gasto'));}
+  if(t==='ingreso'){ri.className='radio-btn active-income';rg.className='radio-btn';}
+  else{rg.className='radio-btn active-expense';ri.className='radio-btn';}
+  fillCatFromBudget(t);
 }
+
+// Rellena el select de categoría usando budStruct como fuente única
+function fillCatFromBudget(type){
+  var sel=document.getElementById('inp-cat');
+  if(!sel) return;
+  var html='<option value="">Categoría / subcategoría</option>';
+  var filtered=budStruct.filter(function(c){
+    return type==='ingreso' ? c.type==='income' : c.type==='expense';
+  });
+  filtered.forEach(function(cat){
+    if(cat.subs.length===0) return;
+    html+='<optgroup label="'+cat.name+'">';
+    cat.subs.forEach(function(sub){
+      html+='<option value="'+sub.id+'|'+cat.id+'">'+sub.name+'</option>';
+    });
+    html+='</optgroup>';
+  });
+  sel.innerHTML=html;
+}
+
+// Mismo para el select del modal de edición
+function fillEditCatFromBudget(type, selectedVal){
+  var sel=document.getElementById('edit-cat');
+  if(!sel) return;
+  var html='<option value="">Categoría / subcategoría</option>';
+  var filtered=budStruct.filter(function(c){
+    return type==='ingreso' ? c.type==='income' : c.type==='expense';
+  });
+  filtered.forEach(function(cat){
+    if(cat.subs.length===0) return;
+    html+='<optgroup label="'+cat.name+'">';
+    cat.subs.forEach(function(sub){
+      var val=sub.id+'|'+cat.id;
+      var sel2=val===selectedVal?' selected':'';
+      html+='<option value="'+val+'"'+sel2+'>'+sub.name+'</option>';
+    });
+    html+='</optgroup>';
+  });
+  sel.innerHTML=html;
+}
+
+// Helpers: dado el valor "subId|catId" del select, obtener info
+function txCatLabel(catVal){
+  if(!catVal||catVal.indexOf('|')===-1) return catVal||'';
+  var parts=catVal.split('|');
+  var subId=parts[0], catId=parts[1];
+  var cat=budStruct.find(function(c){return c.id===catId;});
+  var sub=cat&&cat.subs.find(function(s){return s.id===subId;});
+  if(sub) return sub.name;
+  // Fallback: si es un valor antiguo (texto plano), devolverlo tal cual
+  return catVal;
+}
+function txCatColor(catVal){
+  if(!catVal||catVal.indexOf('|')===-1){
+    // Valor antiguo: buscar en customCats
+    var c=customCats.find(function(x){return x.name===catVal;});
+    return c?c.color:'#888780';
+  }
+  var parts=catVal.split('|');
+  var cat=budStruct.find(function(c){return c.id===parts[1];});
+  return cat?cat.color:'#888780';
+}
+function txSubCatId(catVal){
+  if(!catVal||catVal.indexOf('|')===-1) return null;
+  return catVal.split('|')[0];
+}
+function txBudCatId(catVal){
+  if(!catVal||catVal.indexOf('|')===-1) return null;
+  return catVal.split('|')[1];
+}
+
+// Compatibilidad: mantener getCatColor funcionando para valores legacy
+var _origGetCatColor=getCatColor;
+getCatColor=function(name){
+  return txCatColor(name);
+};
+
 function fillCat(opts){
-  var s=document.getElementById('inp-cat');
-  s.innerHTML='<option value="">Categoría</option>'+opts.map(o=>'<option>'+o+'</option>').join('');
+  // Función legacy — ahora no se usa pero se mantiene por si acaso
+  fillCatFromBudget(txType==='ingreso'?'ingreso':'gasto');
 }
 
 function sortTx(){transactions.sort((a,b)=>new Date(b.date+'T00:00:00')-new Date(a.date+'T00:00:00'));}
@@ -670,21 +692,24 @@ function sortTx(){transactions.sort((a,b)=>new Date(b.date+'T00:00:00')-new Date
 function addTx(){
   var desc=document.getElementById('inp-desc').value.trim();
   var amt=parseFloat(document.getElementById('inp-amt').value);
-  var cat=document.getElementById('inp-cat').value;
+  var catVal=document.getElementById('inp-cat').value;
   var date=document.getElementById('inp-date').value;
-  if(!desc||!amt||!cat||!date){alert('Rellena todos los campos.');return;}
-  transactions.unshift({id:Date.now(),type:txType,desc,amount:amt,cat,date});
+  if(!desc||!amt||!catVal||!date){alert('Rellena todos los campos.');return;}
+  transactions.unshift({id:Date.now(),type:txType,desc,amount:amt,cat:catVal,date});
   sortTx();saveTx();
   document.getElementById('inp-desc').value='';
   document.getElementById('inp-amt').value='';
   document.getElementById('inp-cat').value='';
   renderTx();renderQuickSummary();updateMetrics();
+  // Refrescar Pagos si está activo
+  if(document.getElementById('tab-pagos').classList.contains('active')) pagosRender();
 }
 
 function delTx(id){
   if(!confirm('¿Eliminar esta transacción?'))return;
   transactions=transactions.filter(t=>t.id!==id);
   saveTx();renderTx();renderQuickSummary();updateMetrics();
+  if(document.getElementById('tab-pagos').classList.contains('active')) pagosRender();
 }
 
 function filterTx(f,el){
@@ -699,14 +724,15 @@ function renderTx(){
   filtered.sort((a,b)=>new Date(b.date+'T00:00:00')-new Date(a.date+'T00:00:00'));
   if(!filtered.length){list.innerHTML='<div class="empty">No hay transacciones.<br>Añade la primera arriba.</div>';return;}
   list.innerHTML=filtered.map(t=>{
-    var col=getCatColor(t.cat);
+    var col=txCatColor(t.cat);
+    var label=txCatLabel(t.cat);
     var sign=t.type==='ingreso'?'+':'-';
     var cls=t.type==='ingreso'?'pos':'neg';
     var d=new Date(t.date+'T00:00:00');
     var df=d.toLocaleDateString('es-ES',{day:'numeric',month:'short',year:'2-digit'});
     return '<div class="tx" style="cursor:pointer" onclick="openEditModal('+t.id+')" title="Editar transacción">'+
       '<div class="tx-dot" style="background:'+col+'"></div>'+
-      '<div class="tx-info"><div class="tx-desc">'+escHtml(t.desc)+'</div><div class="tx-meta">'+escHtml(t.cat)+' · '+df+'</div></div>'+
+      '<div class="tx-info"><div class="tx-desc">'+escHtml(t.desc)+'</div><div class="tx-meta">'+escHtml(label)+' · '+df+'</div></div>'+
       '<div class="tx-amount '+cls+'">'+sign+fmt(t.amount)+'</div>'+
       '<button class="tx-del" onclick="event.stopPropagation();delTx('+t.id+')" title="Eliminar">×</button>'+
       '</div>';
@@ -721,12 +747,13 @@ function renderRecent(){
   var recent=transactions.slice().sort((a,b)=>new Date(b.date+'T00:00:00')-new Date(a.date+'T00:00:00')).slice(0,5);
   if(!recent.length){list.innerHTML='<div class="empty">Sin transacciones.</div>';return;}
   list.innerHTML=recent.map(t=>{
-    var col=getCatColor(t.cat);
+    var col=txCatColor(t.cat);
+    var label=txCatLabel(t.cat);
     var sign=t.type==='ingreso'?'+':'-';
     var cls=t.type==='ingreso'?'pos':'neg';
     return '<div class="tx">'+
       '<div class="tx-dot" style="background:'+col+'"></div>'+
-      '<div class="tx-info"><div class="tx-desc">'+escHtml(t.desc)+'</div><div class="tx-meta">'+escHtml(t.cat)+'</div></div>'+
+      '<div class="tx-info"><div class="tx-desc">'+escHtml(t.desc)+'</div><div class="tx-meta">'+escHtml(label)+'</div></div>'+
       '<div class="tx-amount '+cls+'">'+sign+fmt(t.amount)+'</div></div>';
   }).join('');
 }
@@ -765,10 +792,17 @@ function updateMetrics(){
 
 function renderCharts(){
   var catTotals={};
-  transactions.filter(t=>t.type==='gasto').forEach(t=>{catTotals[t.cat]=(catTotals[t.cat]||0)+t.amount;});
+  transactions.filter(t=>t.type==='gasto').forEach(t=>{
+    var label=txCatLabel(t.cat);
+    catTotals[label]=(catTotals[label]||0)+t.amount;
+  });
   var cats=Object.keys(catTotals);
   var vals=cats.map(c=>catTotals[c]);
-  var colors=cats.map(c=>getCatColor(c));
+  // Para el color usamos la primera tx que coincida con ese label
+  var colors=cats.map(function(label){
+    var tx=transactions.find(function(t){ return t.type==='gasto' && txCatLabel(t.cat)===label; });
+    return tx ? txCatColor(tx.cat) : '#888780';
+  });
   var total=vals.reduce((a,b)=>a+b,0);
   if(doughnutChart)doughnutChart.destroy();
   doughnutChart=new Chart(document.getElementById('chartDoughnut').getContext('2d'),{
@@ -1936,17 +1970,12 @@ function openEditModal(id){
   if(!t)return;
   editingTxId=id;
   editingTxType=t.type;
-
-  // Populate fields
   document.getElementById('edit-desc').value=t.desc;
   document.getElementById('edit-amt').value=t.amount;
   document.getElementById('edit-date').value=t.date;
   setEditType(t.type);
-
-  // Set category select options then value
-  fillEditCat(getCatsByType(t.type));
-  document.getElementById('edit-cat').value=t.cat;
-
+  // Seleccionar la categoría actual (formato nuevo subId|catId o legacy texto)
+  fillEditCatFromBudget(t.type, t.cat);
   document.getElementById('edit-modal').style.display='flex';
   document.getElementById('edit-desc').focus();
 }
@@ -1962,12 +1991,12 @@ function setEditType(t){
     rg.className='radio-btn active-expense';
     ri.className='radio-btn';
   }
-  fillEditCat(getCatsByType(t));
+  fillEditCatFromBudget(t, document.getElementById('edit-cat').value);
 }
 
 function fillEditCat(opts){
-  var s=document.getElementById('edit-cat');
-  s.innerHTML=opts.map(o=>'<option>'+escHtml(o)+'</option>').join('');
+  // Legacy — redirige a la nueva función
+  fillEditCatFromBudget(editingTxType||'gasto', document.getElementById('edit-cat').value);
 }
 
 function closeEditModal(){
@@ -1978,19 +2007,16 @@ function closeEditModal(){
 function saveEditTx(){
   var desc=document.getElementById('edit-desc').value.trim();
   var amt=parseFloat(document.getElementById('edit-amt').value);
-  var cat=document.getElementById('edit-cat').value;
+  var catVal=document.getElementById('edit-cat').value;
   var date=document.getElementById('edit-date').value;
-  if(!desc||!amt||!cat||!date){alert('Rellena todos los campos.');return;}
+  if(!desc||!amt||!catVal||!date){alert('Rellena todos los campos.');return;}
   var t=transactions.find(x=>x.id===editingTxId);
   if(!t){closeEditModal();return;}
-  t.desc=desc;
-  t.amount=amt;
-  t.cat=cat;
-  t.date=date;
-  t.type=editingTxType;
+  t.desc=desc; t.amount=amt; t.cat=catVal; t.date=date; t.type=editingTxType;
   sortTx();saveTx();
   closeEditModal();
   renderTx();renderQuickSummary();updateMetrics();renderRecent();
+  if(document.getElementById('tab-pagos').classList.contains('active')) pagosRender();
 }
 
 function deleteTxFromModal(){
@@ -1999,6 +2025,7 @@ function deleteTxFromModal(){
   saveTx();
   closeEditModal();
   renderTx();renderQuickSummary();updateMetrics();renderRecent();
+  if(document.getElementById('tab-pagos').classList.contains('active')) pagosRender();
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -2173,6 +2200,21 @@ function driveLoad(){
 }
 
 // ── PAGOS ──────────────────────────────────────────────────────────────────
+// Suma transacciones reales de un mes para una subcategoría concreta
+function getTxSpent(subId, catId, y, m){
+  var total=0;
+  transactions.forEach(function(t){
+    if(t.type!=='gasto') return;
+    // Formato nuevo: "subId|catId"
+    if(t.cat === subId+'|'+catId){
+      var d=new Date(t.date+'T00:00:00');
+      if(d.getFullYear()===y && d.getMonth()===m) total+=t.amount;
+      return;
+    }
+  });
+  return Math.round(total*100)/100;
+}
+
 // Estado: año/mes seleccionado
 var pagosYear = new Date().getFullYear();
 var pagosMonth = new Date().getMonth(); // 0-based
@@ -2238,7 +2280,7 @@ function pagosUpdateSummary() {
   expCats.forEach(function(cat) {
     cat.subs.forEach(function(sub) {
       var budgeted = getBudVal(cat.id, sub.id, y, m);
-      var spent = getPagosSpent(cat.id, sub.id, y, m);
+      var spent = getTxSpent(sub.id, cat.id, y, m);
       totalBudget += budgeted;
       totalSpent += spent;
     });
@@ -2368,7 +2410,7 @@ function pagosRender() {
     var catBudget = 0, catSpent = 0;
     cat.subs.forEach(function(sub) {
       catBudget += getBudVal(cat.id, sub.id, y, m);
-      catSpent  += getPagosSpent(cat.id, sub.id, y, m);
+      catSpent  += getTxSpent(sub.id, cat.id, y, m);
     });
 
     var block = document.createElement('div');
@@ -2412,10 +2454,14 @@ function pagosRender() {
 
     cat.subs.forEach(function(sub) {
       var budgeted  = getBudVal(cat.id, sub.id, y, m);
-      var spent     = getPagosSpent(cat.id, sub.id, y, m);
+      var spent     = getTxSpent(sub.id, cat.id, y, m);
       var available = Math.max(0, budgeted - spent);
       var overBudget = spent > budgeted && budgeted > 0;
-      var key       = pagosSpentKey(cat.id, sub.id, y, m);
+      var key       = cat.id+'|'+sub.id+'|'+y+'|'+m;
+      // Auto-check: si gasto >= presupuestado, marcar automáticamente
+      if(budgeted > 0 && spent >= budgeted && !pagosChecked[key]) {
+        pagosChecked[key] = true; pagosSave();
+      }
       var isDone    = !!pagosChecked[key];
       var pct       = budgeted > 0 ? Math.min(100, Math.round(spent / budgeted * 100)) : 0;
 
@@ -2440,19 +2486,16 @@ function pagosRender() {
       nameSpan.style.cssText = 'flex:1;font-size:14px;color:' + (isDone ? 'var(--text3)' : 'var(--text)') + ';text-decoration:' + (isDone ? 'line-through' : 'none');
       nameSpan.textContent = sub.name;
 
-      // Bloque derecha: gastado / presupuestado + botón +
+      // Bloque derecha: gastado (de transacciones) / presupuestado
       var rightDiv = document.createElement('div');
       rightDiv.style.cssText = 'display:flex;align-items:center;gap:6px;flex-shrink:0';
 
-      // Importe gastado (editable → abre modal)
-      var spentBtn = document.createElement('button');
+      // Gasto real (solo lectura, viene de transacciones)
+      var spentSpan = document.createElement('span');
       var spentColor = overBudget ? 'var(--red)' : (spent > 0 ? cat.color : 'var(--text3)');
-      spentBtn.style.cssText = 'font-size:13px;font-weight:500;color:' + spentColor + ';background:none;border:0.5px solid var(--border);border-radius:var(--radius);padding:3px 8px;cursor:pointer;min-width:64px;text-align:right;font-family:inherit;transition:all .15s';
-      spentBtn.textContent = spent > 0 ? fmt(spent) : '0';
-      spentBtn.title = 'Gasto real · clic para registrar';
-      spentBtn.onmouseover = function(){ this.style.borderColor='var(--blue)'; };
-      spentBtn.onmouseout  = function(){ this.style.borderColor='var(--border)'; };
-      spentBtn.onclick = (function(cid,sid,cc){ return function(){ pagosOpenSpentModal(cid,sid,cc); }; })(cat.id, sub.id, cat.color);
+      spentSpan.style.cssText = 'font-size:13px;font-weight:500;color:'+spentColor+';min-width:64px;text-align:right';
+      spentSpan.textContent = spent > 0 ? fmt(spent) : '0';
+      spentSpan.title = 'Gastado (de Transacciones)';
 
       // Separador "/"
       var sep = document.createElement('span');
@@ -2468,19 +2511,28 @@ function pagosRender() {
       budBtn.onmouseout  = function(){ this.style.borderColor='var(--border)'; this.style.color='var(--text2)'; };
       budBtn.onclick = (function(cid,sid){ return function(){ pagosEditBudget(cid,sid); }; })(cat.id, sub.id);
 
-      // Botón +
-      var addBtn = document.createElement('button');
-      addBtn.style.cssText = 'width:24px;height:24px;border-radius:50%;border:0.5px solid var(--border2);background:none;cursor:pointer;font-size:15px;color:var(--text2);display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all .15s;line-height:1';
-      addBtn.textContent = '+';
-      addBtn.title = 'Registrar gasto';
-      addBtn.onmouseover = function(){ this.style.background=cat.color; this.style.color='#fff'; this.style.borderColor=cat.color; };
-      addBtn.onmouseout  = function(){ this.style.background='none'; this.style.color='var(--text2)'; this.style.borderColor='var(--border2)'; };
-      addBtn.onclick = (function(cid,sid,cc){ return function(){ pagosOpenSpentModal(cid,sid,cc); }; })(cat.id, sub.id, cat.color);
+      // Atajo: ir a añadir transacción
+      var txBtn = document.createElement('button');
+      txBtn.style.cssText = 'width:24px;height:24px;border-radius:50%;border:0.5px solid var(--border2);background:none;cursor:pointer;font-size:13px;color:var(--text2);display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all .15s;line-height:1';
+      txBtn.textContent = '+';
+      txBtn.title = 'Ir a Transacciones para registrar un gasto';
+      txBtn.onmouseover = function(){ this.style.background=cat.color; this.style.color='#fff'; this.style.borderColor=cat.color; };
+      txBtn.onmouseout  = function(){ this.style.background='none'; this.style.color='var(--text2)'; this.style.borderColor='var(--border2)'; };
+      txBtn.onclick = (function(sname, cc){ return function(){
+        // Cambiar a pestaña transacciones con tipo=gasto preseleccionado
+        var navBtns=document.querySelectorAll('.nav-btn');
+        navBtns.forEach(function(b){ if(b.textContent.trim()==='Transacciones'){ showTab('transacciones',b); } });
+        setTimeout(function(){
+          setType('gasto');
+          var descEl=document.getElementById('inp-desc');
+          if(descEl){ descEl.value=sname; descEl.focus(); }
+        },80);
+      };})(sub.name, cat.color);
 
-      rightDiv.appendChild(spentBtn);
+      rightDiv.appendChild(spentSpan);
       rightDiv.appendChild(sep);
       rightDiv.appendChild(budBtn);
-      rightDiv.appendChild(addBtn);
+      rightDiv.appendChild(txBtn);
 
       mainLine.appendChild(checkDiv);
       mainLine.appendChild(nameSpan);
@@ -2526,7 +2578,7 @@ document.getElementById('struct-type').addEventListener('change',function(){
 document.getElementById('inp-date').value=new Date().toISOString().split('T')[0];
 // Init pagos
 // Init pagos rendered on tab open
-fillCat(getCatsByType('ingreso'));
+fillCatFromBudget('ingreso');
 updateMetrics();renderRecent();
 setTimeout(renderCharts,100);
 setTimeout(driveInit,1000);
