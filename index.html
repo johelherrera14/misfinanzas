@@ -205,18 +205,34 @@
     </div>
 
     <!-- Métricas resumen -->
-    <div class="metrics" style="grid-template-columns:repeat(4,1fr);margin-bottom:1.25rem">
+    <div class="metrics" style="grid-template-columns:repeat(3,1fr);margin-bottom:0.75rem">
       <div class="metric">
         <div class="metric-label">Total presupuestado</div>
-        <div class="metric-value" id="pagos-s-total" style="font-size:20px">—</div>
+        <div class="metric-value" id="pagos-s-total" style="font-size:18px">—</div>
       </div>
       <div class="metric">
         <div class="metric-label">Gastado este mes</div>
-        <div class="metric-value income" id="pagos-s-pagado" style="font-size:20px">—</div>
+        <div class="metric-value income" id="pagos-s-pagado" style="font-size:18px">—</div>
       </div>
       <div class="metric">
         <div class="metric-label">Pendiente por pagar</div>
-        <div class="metric-value" id="pagos-s-pendiente" style="font-size:20px;color:var(--amber)">—</div>
+        <div class="metric-value" id="pagos-s-pendiente" style="font-size:18px;color:var(--amber)">—</div>
+      </div>
+    </div>
+    <div class="metrics" style="grid-template-columns:repeat(3,1fr);margin-bottom:1.25rem">
+      <div class="metric">
+        <div class="metric-label">Ahorro real</div>
+        <div style="display:flex;align-items:baseline;gap:6px;margin-top:2px">
+          <div class="metric-value" id="pagos-s-ahorro-real" style="font-size:18px">—</div>
+          <span style="font-size:11px;color:var(--text3)">ingresos reales − gastos</span>
+        </div>
+      </div>
+      <div class="metric">
+        <div class="metric-label">Ahorro planificado</div>
+        <div style="display:flex;align-items:baseline;gap:6px;margin-top:2px">
+          <div class="metric-value" id="pagos-s-ahorro-plan" style="font-size:18px">—</div>
+          <span style="font-size:11px;color:var(--text3)">ppto ingresos − ppto gastos</span>
+        </div>
       </div>
       <div class="metric">
         <div class="metric-label">Completado</div>
@@ -2288,17 +2304,44 @@ function pagosUpdateSummary() {
   var pending = totalBudget - totalSpent;
   var pct = totalBudget > 0 ? Math.min(100, Math.round((totalSpent / totalBudget) * 100)) : 0;
 
+  // Ahorro real: ingresos reales del mes − gastos reales del mes
+  var realIncome = 0;
+  transactions.forEach(function(t) {
+    if (t.type !== 'ingreso') return;
+    var d = new Date(t.date + 'T00:00:00');
+    if (d.getFullYear() === y && d.getMonth() === m) realIncome += t.amount;
+  });
+  var ahorroReal = realIncome - totalSpent;
+
+  // Ahorro planificado: presupuesto ingresos − presupuesto gastos del mes
+  var budgetIncome = 0;
+  budStruct.filter(function(c){ return c.type === 'income'; }).forEach(function(cat) {
+    cat.subs.forEach(function(sub) { budgetIncome += getBudVal(cat.id, sub.id, y, m); });
+  });
+  var ahorroPlан = budgetIncome - totalBudget;
+
+  // Actualizar DOM
   var totalEl  = document.getElementById('pagos-s-total');
   var pagadoEl = document.getElementById('pagos-s-pagado');
   var pendEl   = document.getElementById('pagos-s-pendiente');
+  var ahorroRealEl = document.getElementById('pagos-s-ahorro-real');
+  var ahorroPlanEl = document.getElementById('pagos-s-ahorro-plan');
   var progFill = document.getElementById('pagos-prog-fill');
   var progLabel= document.getElementById('pagos-prog-label');
 
-  if (totalEl)  totalEl.textContent  = fmt(totalBudget);
+  if (totalEl)  totalEl.textContent = fmt(totalBudget);
   if (pagadoEl) pagadoEl.textContent = fmt(totalSpent);
   if (pendEl) {
     pendEl.textContent = fmt(Math.max(0, pending));
     pendEl.style.color = pending <= 0 ? 'var(--green)' : 'var(--amber)';
+  }
+  if (ahorroRealEl) {
+    ahorroRealEl.textContent = (ahorroReal >= 0 ? '+' : '') + fmt(ahorroReal);
+    ahorroRealEl.style.color = ahorroReal >= 0 ? 'var(--green)' : 'var(--red)';
+  }
+  if (ahorroPlanEl) {
+    ahorroPlanEl.textContent = (ahorroPlан >= 0 ? '+' : '') + fmt(ahorroPlан);
+    ahorroPlanEl.style.color = ahorroPlан >= 0 ? 'var(--green)' : 'var(--red)';
   }
   if (progFill)  { progFill.style.width = pct + '%'; progFill.style.background = pct >= 100 ? 'var(--green)' : 'var(--blue)'; }
   if (progLabel) progLabel.textContent = pct + '%';
