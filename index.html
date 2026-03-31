@@ -2537,9 +2537,14 @@ function pagosRender() {
           var subName=txCatLabel(subIdVal+'|'+catIdVal);
           var descEl2=document.getElementById('inp-desc');
           if(descEl2) descEl2.value=subName;
-          // Foco en el importe
+          // Sugerir el importe presupuestado para ese mes
+          var budgeted=getBudVal(catIdVal, subIdVal, pagosYear, pagosMonth);
           var amtEl=document.getElementById('inp-amt');
-          if(amtEl){ amtEl.value=''; amtEl.focus(); amtEl.select(); }
+          if(amtEl){
+            amtEl.value=budgeted>0 ? budgeted : '';
+            amtEl.focus();
+            amtEl.select();
+          }
         },80);
       };})(sub.id, cat.id);
 
