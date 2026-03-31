@@ -807,18 +807,20 @@ function updateMetrics(){
 }
 
 function renderCharts(){
+  // Agrupar por categoría PADRE (no subcategoría)
   var catTotals={};
-  transactions.filter(t=>t.type==='gasto').forEach(t=>{
-    var label=txCatLabel(t.cat);
-    catTotals[label]=(catTotals[label]||0)+t.amount;
+  var catColors={};
+  transactions.filter(t=>t.type==='gasto').forEach(function(t){
+    var budCatId = txBudCatId(t.cat);
+    var cat = budCatId && budStruct.find(function(c){ return c.id===budCatId; });
+    var label = cat ? cat.name : txCatLabel(t.cat);
+    var color = cat ? cat.color : '#888780';
+    catTotals[label] = (catTotals[label]||0) + t.amount;
+    catColors[label] = color;
   });
   var cats=Object.keys(catTotals);
-  var vals=cats.map(c=>catTotals[c]);
-  // Para el color usamos la primera tx que coincida con ese label
-  var colors=cats.map(function(label){
-    var tx=transactions.find(function(t){ return t.type==='gasto' && txCatLabel(t.cat)===label; });
-    return tx ? txCatColor(tx.cat) : '#888780';
-  });
+  var vals=cats.map(function(c){ return catTotals[c]; });
+  var colors=cats.map(function(c){ return catColors[c]; });
   var total=vals.reduce((a,b)=>a+b,0);
   if(doughnutChart)doughnutChart.destroy();
   doughnutChart=new Chart(document.getElementById('chartDoughnut').getContext('2d'),{
