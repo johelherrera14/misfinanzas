@@ -2533,8 +2533,11 @@ function pagosRender() {
               if(catSel.options[i].value===targetVal){ catSel.selectedIndex=i; break; }
             }
           }
-          // Limpiar descripción y poner foco en el importe
-          document.getElementById('inp-desc').value='';
+          // Poner el nombre de la subcategoría como descripción por defecto
+          var subName=txCatLabel(subIdVal+'|'+catIdVal);
+          var descEl2=document.getElementById('inp-desc');
+          if(descEl2) descEl2.value=subName;
+          // Foco en el importe
           var amtEl=document.getElementById('inp-amt');
           if(amtEl){ amtEl.value=''; amtEl.focus(); amtEl.select(); }
         },80);
