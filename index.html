@@ -117,6 +117,7 @@
       <button class="nav-btn active" onclick="showTab('resumen',this)">Resumen</button>
       <button class="nav-btn" onclick="showTab('transacciones',this)">Transacciones</button>
       <button class="nav-btn" onclick="showTab('presupuesto',this)">Presupuesto</button>
+      <button class="nav-btn" onclick="showTab('pagos',this)">Pagos</button>
       <button class="nav-btn" onclick="showTab('metas',this)">Metas</button>
       <button class="nav-btn" onclick="showTab('categorias',this)">Categorías</button>
       <button class="nav-btn" onclick="showTab('config',this)">Configuración</button>
@@ -185,6 +186,54 @@
       </div>
       <div class="tx-list" id="tx-list"></div>
     </div>
+  </div>
+
+  <!-- PAGOS -->
+  <div id="tab-pagos" class="section">
+
+    <!-- Cabecera: selector mes/año + botón reiniciar -->
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1.25rem;flex-wrap:wrap;gap:8px">
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+        <button onclick="pagosChangeMonth(-1)" style="background:none;border:0.5px solid var(--border2);border-radius:var(--radius);width:30px;height:30px;cursor:pointer;font-size:16px;color:var(--text2);display:flex;align-items:center;justify-content:center">&#x2039;</button>
+        <span id="pagos-month-label" style="font-size:15px;font-weight:500;min-width:150px;text-align:center"></span>
+        <button onclick="pagosChangeMonth(1)" style="background:none;border:0.5px solid var(--border2);border-radius:var(--radius);width:30px;height:30px;cursor:pointer;font-size:16px;color:var(--text2);display:flex;align-items:center;justify-content:center">&#x203a;</button>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+        <span style="font-size:11px;color:var(--text3)">Los importes se editan aquí o en Presupuesto</span>
+        <button onclick="pagosResetMonth()" class="btn-sm" style="font-size:12px;padding:6px 14px;color:var(--amber)">&#x21ba; Reiniciar pagos del mes</button>
+      </div>
+    </div>
+
+    <!-- Métricas resumen -->
+    <div class="metrics" style="grid-template-columns:repeat(4,1fr);margin-bottom:1.25rem">
+      <div class="metric">
+        <div class="metric-label">Total presupuestado</div>
+        <div class="metric-value" id="pagos-s-total" style="font-size:20px">—</div>
+      </div>
+      <div class="metric">
+        <div class="metric-label">Ya pagado</div>
+        <div class="metric-value income" id="pagos-s-pagado" style="font-size:20px">—</div>
+      </div>
+      <div class="metric">
+        <div class="metric-label">Pendiente por pagar</div>
+        <div class="metric-value" id="pagos-s-pendiente" style="font-size:20px;color:var(--amber)">—</div>
+      </div>
+      <div class="metric">
+        <div class="metric-label">Completado</div>
+        <div style="display:flex;align-items:center;gap:8px;margin-top:8px">
+          <div style="flex:1;height:6px;background:var(--bg3);border-radius:3px;overflow:hidden">
+            <div id="pagos-prog-fill" style="height:100%;border-radius:3px;background:var(--blue);transition:width .4s;width:0%"></div>
+          </div>
+          <span id="pagos-prog-label" style="font-size:14px;font-weight:500;color:var(--text2);min-width:34px">0%</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Aviso si no hay datos -->
+    <div id="pagos-empty" class="notice" style="display:none">No hay gastos presupuestados para este mes. Ve a <strong>Presupuesto</strong> para añadir importes.</div>
+
+    <!-- Categorías (leídas de budStruct + budValues) -->
+    <div id="pagos-cats-wrap"></div>
   </div>
 
   <!-- PRESUPUESTO -->
@@ -535,6 +584,7 @@ function showTab(t,btn){
   btn.classList.add('active');
   if(t==='resumen'){updateMetrics();setTimeout(renderCharts,60);renderRecent();}
   if(t==='transacciones'){renderTx();renderQuickSummary();}
+  if(t==='pagos'){pagosRender();}
   if(t==='presupuesto'){renderBudgetAnnual();}
   if(t==='metas'){renderGoals();}
   if(t==='categorias'){renderCats();}
@@ -708,12 +758,15 @@ var MONTHS_SHORT=['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','N
 // budValues: { "catId|subId|YYYY|M": amount }   (M is 0-based)
 var budStruct=load('fin_bstruct',[
   {id:'bs1',name:'Ingresos',type:'income',color:'#1D9E75',subs:[
-    {id:'bs1s1',name:'Sueldo'},
-    {id:'bs1s2',name:'Freelance'},
+    {id:'bs1s1',name:'Sueldo neto'},
+    {id:'bs1s2',name:'Freelance / extras'},
   ]},
   {id:'bs2',name:'Vivienda',type:'expense',color:'#7F77DD',subs:[
     {id:'bs2s1',name:'Alquiler'},
-    {id:'bs2s2',name:'Suministros'},
+    {id:'bs2s2',name:'Electricidad'},
+    {id:'bs2s3',name:'Agua'},
+    {id:'bs2s4',name:'Internet y móvil'},
+    {id:'bs2s5',name:'Comunidad'},
   ]},
   {id:'bs3',name:'Alimentación',type:'expense',color:'#1D9E75',subs:[
     {id:'bs3s1',name:'Supermercado'},
@@ -722,12 +775,218 @@ var budStruct=load('fin_bstruct',[
   {id:'bs4',name:'Transporte',type:'expense',color:'#378ADD',subs:[
     {id:'bs4s1',name:'Transporte público'},
     {id:'bs4s2',name:'Combustible'},
+    {id:'bs4s3',name:'Seguro coche'},
   ]},
-  {id:'bs5',name:'Ocio',type:'expense',color:'#EF9F27',subs:[
-    {id:'bs5s1',name:'Entretenimiento'},
+  {id:'bs5',name:'Salud',type:'expense',color:'#D85A30',subs:[
+    {id:'bs5s1',name:'Farmacia'},
+    {id:'bs5s2',name:'Médico / dentista'},
+  ]},
+  {id:'bs6',name:'Ocio y personal',type:'expense',color:'#EF9F27',subs:[
+    {id:'bs6s1',name:'Ocio y salidas'},
+    {id:'bs6s2',name:'Suscripciones'},
+    {id:'bs6s3',name:'Ropa y calzado'},
+  ]},
+  {id:'bs7',name:'Ahorro',type:'expense',color:'#378ADD',subs:[
+    {id:'bs7s1',name:'Fondo de emergencia'},
+    {id:'bs7s2',name:'Ahorro vacaciones'},
   ]},
 ]);
-var budValues=load('fin_bvals',{});
+var budValues=load('fin_bvals',{
+  "bs1|bs1s1|2026|0": 2200,
+  "bs2|bs2s1|2026|0": 780,
+  "bs2|bs2s2|2026|0": 95,
+  "bs2|bs2s3|2026|0": 18,
+  "bs2|bs2s4|2026|0": 55,
+  "bs2|bs2s5|2026|0": 45,
+  "bs3|bs3s1|2026|0": 280,
+  "bs3|bs3s2|2026|0": 80,
+  "bs4|bs4s1|2026|0": 54,
+  "bs4|bs4s2|2026|0": 80,
+  "bs5|bs5s1|2026|0": 30,
+  "bs6|bs6s1|2026|0": 80,
+  "bs6|bs6s2|2026|0": 35,
+  "bs7|bs7s1|2026|0": 150,
+  "bs7|bs7s2|2026|0": 100,
+  "bs1|bs1s1|2026|1": 2200,
+  "bs1|bs1s2|2026|1": 350,
+  "bs2|bs2s1|2026|1": 780,
+  "bs2|bs2s2|2026|1": 90,
+  "bs2|bs2s3|2026|1": 18,
+  "bs2|bs2s4|2026|1": 55,
+  "bs2|bs2s5|2026|1": 45,
+  "bs3|bs3s1|2026|1": 280,
+  "bs3|bs3s2|2026|1": 70,
+  "bs4|bs4s1|2026|1": 54,
+  "bs4|bs4s2|2026|1": 80,
+  "bs5|bs5s1|2026|1": 25,
+  "bs6|bs6s1|2026|1": 70,
+  "bs6|bs6s2|2026|1": 35,
+  "bs7|bs7s1|2026|1": 150,
+  "bs7|bs7s2|2026|1": 100,
+  "bs1|bs1s1|2026|2": 2200,
+  "bs2|bs2s1|2026|2": 780,
+  "bs2|bs2s2|2026|2": 75,
+  "bs2|bs2s3|2026|2": 18,
+  "bs2|bs2s4|2026|2": 55,
+  "bs2|bs2s5|2026|2": 45,
+  "bs3|bs3s1|2026|2": 280,
+  "bs3|bs3s2|2026|2": 90,
+  "bs4|bs4s1|2026|2": 54,
+  "bs4|bs4s2|2026|2": 80,
+  "bs4|bs4s3|2026|2": 420,
+  "bs5|bs5s1|2026|2": 20,
+  "bs5|bs5s2|2026|2": 65,
+  "bs6|bs6s1|2026|2": 90,
+  "bs6|bs6s2|2026|2": 35,
+  "bs6|bs6s3|2026|2": 60,
+  "bs7|bs7s1|2026|2": 150,
+  "bs7|bs7s2|2026|2": 100,
+  "bs1|bs1s1|2026|3": 2200,
+  "bs2|bs2s1|2026|3": 780,
+  "bs2|bs2s2|2026|3": 60,
+  "bs2|bs2s3|2026|3": 18,
+  "bs2|bs2s4|2026|3": 55,
+  "bs2|bs2s5|2026|3": 45,
+  "bs3|bs3s1|2026|3": 280,
+  "bs3|bs3s2|2026|3": 100,
+  "bs4|bs4s1|2026|3": 54,
+  "bs4|bs4s2|2026|3": 80,
+  "bs5|bs5s1|2026|3": 15,
+  "bs6|bs6s1|2026|3": 100,
+  "bs6|bs6s2|2026|3": 35,
+  "bs7|bs7s1|2026|3": 150,
+  "bs7|bs7s2|2026|3": 100,
+  "bs1|bs1s1|2026|4": 2200,
+  "bs1|bs1s2|2026|4": 350,
+  "bs2|bs2s1|2026|4": 780,
+  "bs2|bs2s2|2026|4": 55,
+  "bs2|bs2s3|2026|4": 18,
+  "bs2|bs2s4|2026|4": 55,
+  "bs2|bs2s5|2026|4": 45,
+  "bs3|bs3s1|2026|4": 280,
+  "bs3|bs3s2|2026|4": 95,
+  "bs4|bs4s1|2026|4": 54,
+  "bs4|bs4s2|2026|4": 80,
+  "bs5|bs5s1|2026|4": 15,
+  "bs6|bs6s1|2026|4": 110,
+  "bs6|bs6s2|2026|4": 35,
+  "bs6|bs6s3|2026|4": 80,
+  "bs7|bs7s1|2026|4": 150,
+  "bs7|bs7s2|2026|4": 100,
+  "bs1|bs1s1|2026|5": 2200,
+  "bs2|bs2s1|2026|5": 780,
+  "bs2|bs2s2|2026|5": 60,
+  "bs2|bs2s3|2026|5": 18,
+  "bs2|bs2s4|2026|5": 55,
+  "bs2|bs2s5|2026|5": 45,
+  "bs3|bs3s1|2026|5": 280,
+  "bs3|bs3s2|2026|5": 110,
+  "bs4|bs4s1|2026|5": 54,
+  "bs4|bs4s2|2026|5": 80,
+  "bs5|bs5s1|2026|5": 10,
+  "bs5|bs5s2|2026|5": 90,
+  "bs6|bs6s1|2026|5": 130,
+  "bs6|bs6s2|2026|5": 35,
+  "bs7|bs7s1|2026|5": 150,
+  "bs7|bs7s2|2026|5": 100,
+  "bs1|bs1s1|2026|6": 2200,
+  "bs2|bs2s1|2026|6": 780,
+  "bs2|bs2s2|2026|6": 85,
+  "bs2|bs2s3|2026|6": 18,
+  "bs2|bs2s4|2026|6": 55,
+  "bs2|bs2s5|2026|6": 45,
+  "bs3|bs3s1|2026|6": 280,
+  "bs3|bs3s2|2026|6": 130,
+  "bs4|bs4s1|2026|6": 54,
+  "bs4|bs4s2|2026|6": 80,
+  "bs5|bs5s1|2026|6": 10,
+  "bs6|bs6s1|2026|6": 200,
+  "bs6|bs6s2|2026|6": 35,
+  "bs7|bs7s1|2026|6": 150,
+  "bs7|bs7s2|2026|6": 100,
+  "bs1|bs1s1|2026|7": 2200,
+  "bs1|bs1s2|2026|7": 350,
+  "bs2|bs2s1|2026|7": 780,
+  "bs2|bs2s2|2026|7": 90,
+  "bs2|bs2s3|2026|7": 18,
+  "bs2|bs2s4|2026|7": 55,
+  "bs2|bs2s5|2026|7": 45,
+  "bs3|bs3s1|2026|7": 280,
+  "bs3|bs3s2|2026|7": 140,
+  "bs4|bs4s1|2026|7": 54,
+  "bs4|bs4s2|2026|7": 80,
+  "bs5|bs5s1|2026|7": 10,
+  "bs6|bs6s1|2026|7": 220,
+  "bs6|bs6s2|2026|7": 35,
+  "bs6|bs6s3|2026|7": 70,
+  "bs7|bs7s1|2026|7": 150,
+  "bs7|bs7s2|2026|7": 100,
+  "bs1|bs1s1|2026|8": 2200,
+  "bs2|bs2s1|2026|8": 780,
+  "bs2|bs2s2|2026|8": 65,
+  "bs2|bs2s3|2026|8": 18,
+  "bs2|bs2s4|2026|8": 55,
+  "bs2|bs2s5|2026|8": 45,
+  "bs3|bs3s1|2026|8": 280,
+  "bs3|bs3s2|2026|8": 100,
+  "bs4|bs4s1|2026|8": 54,
+  "bs4|bs4s2|2026|8": 80,
+  "bs5|bs5s1|2026|8": 15,
+  "bs5|bs5s2|2026|8": 65,
+  "bs6|bs6s1|2026|8": 120,
+  "bs6|bs6s2|2026|8": 35,
+  "bs7|bs7s1|2026|8": 150,
+  "bs7|bs7s2|2026|8": 100,
+  "bs1|bs1s1|2026|9": 2200,
+  "bs1|bs1s2|2026|9": 350,
+  "bs2|bs2s1|2026|9": 780,
+  "bs2|bs2s2|2026|9": 55,
+  "bs2|bs2s3|2026|9": 18,
+  "bs2|bs2s4|2026|9": 55,
+  "bs2|bs2s5|2026|9": 45,
+  "bs3|bs3s1|2026|9": 280,
+  "bs3|bs3s2|2026|9": 95,
+  "bs4|bs4s1|2026|9": 54,
+  "bs4|bs4s2|2026|9": 80,
+  "bs5|bs5s1|2026|9": 20,
+  "bs6|bs6s1|2026|9": 100,
+  "bs6|bs6s2|2026|9": 35,
+  "bs6|bs6s3|2026|9": 60,
+  "bs7|bs7s1|2026|9": 150,
+  "bs7|bs7s2|2026|9": 100,
+  "bs1|bs1s1|2026|10": 2200,
+  "bs2|bs2s1|2026|10": 780,
+  "bs2|bs2s2|2026|10": 70,
+  "bs2|bs2s3|2026|10": 18,
+  "bs2|bs2s4|2026|10": 55,
+  "bs2|bs2s5|2026|10": 45,
+  "bs3|bs3s1|2026|10": 280,
+  "bs3|bs3s2|2026|10": 90,
+  "bs4|bs4s1|2026|10": 54,
+  "bs4|bs4s2|2026|10": 80,
+  "bs5|bs5s1|2026|10": 25,
+  "bs6|bs6s1|2026|10": 90,
+  "bs6|bs6s2|2026|10": 35,
+  "bs7|bs7s1|2026|10": 150,
+  "bs7|bs7s2|2026|10": 100,
+  "bs1|bs1s1|2026|11": 2200,
+  "bs1|bs1s2|2026|11": 500,
+  "bs2|bs2s1|2026|11": 780,
+  "bs2|bs2s2|2026|11": 100,
+  "bs2|bs2s3|2026|11": 18,
+  "bs2|bs2s4|2026|11": 55,
+  "bs2|bs2s5|2026|11": 45,
+  "bs3|bs3s1|2026|11": 280,
+  "bs3|bs3s2|2026|11": 150,
+  "bs4|bs4s1|2026|11": 54,
+  "bs4|bs4s2|2026|11": 80,
+  "bs5|bs5s1|2026|11": 30,
+  "bs6|bs6s1|2026|11": 180,
+  "bs6|bs6s2|2026|11": 35,
+  "bs6|bs6s3|2026|11": 120,
+  "bs7|bs7s1|2026|11": 150,
+  "bs7|bs7s2|2026|11": 100,
+});
 var budNotes=load('fin_bnotes',{});
 
 function saveBudStruct(){save('fin_bstruct',budStruct);}
@@ -799,6 +1058,7 @@ function saveCellValue(){
   setBudNote(cellEditCtx.catId,cellEditCtx.subId,cellEditCtx.y,cellEditCtx.m,note);
   closeCellModal();
   renderAnnualView();
+  if(document.getElementById('tab-pagos').classList.contains('active')) pagosRender();
 }
 function setCellValue(v){
   document.getElementById('cell-modal-input').value=v||'';
@@ -981,6 +1241,7 @@ function saveRename(){
   saveBudStruct();
   closeRenameModal();
   renderAnnualView();
+  if(document.getElementById('tab-pagos').classList.contains('active')) pagosRender();
 }
 
 function subNameMouseDown(e, catId, subId){
@@ -1059,7 +1320,8 @@ function addSubCatInline(catId){
   if(!name||!name.trim())return;
   cat.subs.push({id:'bss'+Date.now(),name:name.trim()});
   saveBudStruct();
-  budExpanded[catId]=true; // keep expanded
+  budExpanded[catId]=true;
+  if(typeof pagosRender==='function'&&document.getElementById('tab-pagos').classList.contains('active')) pagosRender();
   renderAnnualView();
 }
 
@@ -1133,14 +1395,17 @@ function addBudStructItem(){
   renderBudStructList();
   updateStructParentSel();
   renderAnnualView();
+  if(typeof pagosRender==='function'&&document.getElementById('tab-pagos').classList.contains('active')) pagosRender();
 }
 function delBudCat(ci){
   if(!confirm('¿Eliminar esta categoría y todos sus datos?'))return;
   budStruct.splice(ci,1);saveBudStruct();renderBudStructList();updateStructParentSel();renderAnnualView();
+  if(typeof pagosRender==='function'&&document.getElementById('tab-pagos').classList.contains('active')) pagosRender();
 }
 function delBudSub(ci,si){
   if(!confirm('¿Eliminar esta subcategoría?'))return;
   budStruct[ci].subs.splice(si,1);saveBudStruct();renderBudStructList();renderAnnualView();
+  if(typeof pagosRender==='function'&&document.getElementById('tab-pagos').classList.contains('active')) pagosRender();
 }
 
 // ── RENDER ANNUAL TABLE ────────────────────────────────────────────────────
@@ -1742,7 +2007,8 @@ function driveShowStatus(msg,color){
 function driveGetAllData(){
   return JSON.stringify({
     transactions,goals,customCats,currency:currencyConfig,
-    budStruct,budValues,budNotes,monthBudgets
+    budStruct,budValues,budNotes,monthBudgets,
+    pagosChecked
   },null,2);
 }
 
@@ -1757,8 +2023,9 @@ function driveApplyData(raw){
     if(d.budValues) budValues=d.budValues;
     if(d.budNotes) budNotes=d.budNotes;
     if(d.monthBudgets) monthBudgets=d.monthBudgets;
+    if(d.pagosChecked) pagosChecked=d.pagosChecked;
     // Persist to localStorage
-    saveTx();saveGoals();saveCats();saveBudStruct();saveBudValues();saveMonthBudgets();
+    saveTx();saveGoals();saveCats();saveBudStruct();saveBudValues();saveMonthBudgets();pagosSave();
     save('fin_currency',currencyConfig);
     return true;
   }catch(e){return false;}
@@ -1841,11 +2108,219 @@ function driveLoad(){
   });
 }
 
+// ── PAGOS ──────────────────────────────────────────────────────────────────
+// Estado: año/mes seleccionado y mapa de pagos marcados
+var pagosYear = new Date().getFullYear();
+var pagosMonth = new Date().getMonth(); // 0-based
+
+// pagosChecked: { "catId|subId|YYYY|M": true }
+var pagosChecked = load('fin_pagos_checked',{
+  "bs2|bs2s1|2026|2": true,
+  "bs2|bs2s4|2026|2": true,
+  "bs2|bs2s5|2026|2": true,
+  "bs4|bs4s1|2026|2": true,
+  "bs6|bs6s2|2026|2": true,
+});
+
+function pagosSave() {
+  save('fin_pagos_checked', pagosChecked);
+}
+
+function pagosCheckedKey(catId, subId) {
+  return catId + '|' + subId + '|' + pagosYear + '|' + pagosMonth;
+}
+
+function pagosChangeMonth(delta) {
+  pagosMonth += delta;
+  if (pagosMonth < 0) { pagosMonth = 11; pagosYear--; }
+  if (pagosMonth > 11) { pagosMonth = 0; pagosYear++; }
+  pagosRender();
+}
+
+function pagosResetMonth() {
+  if (!confirm('¿Desmarcar todos los pagos de este mes?')) return;
+  var prefix = '|' + pagosYear + '|' + pagosMonth;
+  Object.keys(pagosChecked).forEach(function(k) {
+    if (k.indexOf(prefix, k.length - prefix.length) !== -1 || k.endsWith(prefix)) delete pagosChecked[k];
+  });
+  // Safer: delete all keys ending with the month/year combo
+  var toDelete = Object.keys(pagosChecked).filter(function(k){
+    var parts = k.split('|');
+    return parts.length >= 4 && parseInt(parts[2]) === pagosYear && parseInt(parts[3]) === pagosMonth;
+  });
+  toDelete.forEach(function(k){ delete pagosChecked[k]; });
+  pagosSave();
+  pagosRender();
+}
+
+function pagosUpdateSummary() {
+  var y = pagosYear, m = pagosMonth;
+  var totalBudget = 0, totalDone = 0;
+  var expCats = budStruct.filter(function(c){ return c.type === 'expense'; });
+  expCats.forEach(function(cat) {
+    cat.subs.forEach(function(sub) {
+      var val = getBudVal(cat.id, sub.id, y, m);
+      totalBudget += val;
+      var key = cat.id + '|' + sub.id + '|' + y + '|' + m;
+      if (pagosChecked[key]) totalDone += val;
+    });
+  });
+  var pending = totalBudget - totalDone;
+  var pct = totalBudget > 0 ? Math.round((totalDone / totalBudget) * 100) : 0;
+  var totalEl = document.getElementById('pagos-s-total');
+  var pagadoEl = document.getElementById('pagos-s-pagado');
+  var pendEl = document.getElementById('pagos-s-pendiente');
+  var progFill = document.getElementById('pagos-prog-fill');
+  var progLabel = document.getElementById('pagos-prog-label');
+  if (totalEl) totalEl.textContent = fmt(totalBudget);
+  if (pagadoEl) pagadoEl.textContent = fmt(totalDone);
+  if (pendEl) {
+    pendEl.textContent = fmt(pending);
+    pendEl.style.color = pending > 0 ? 'var(--amber)' : 'var(--green)';
+  }
+  if (progFill) { progFill.style.width = pct + '%'; progFill.style.background = pct >= 100 ? 'var(--green)' : 'var(--blue)'; }
+  if (progLabel) progLabel.textContent = pct + '%';
+  var emptyEl = document.getElementById('pagos-empty');
+  if (emptyEl) emptyEl.style.display = totalBudget === 0 ? '' : 'none';
+}
+
+function pagosToggleItem(catId, subId) {
+  var y = pagosYear, m = pagosMonth;
+  var key = catId + '|' + subId + '|' + y + '|' + m;
+  if (pagosChecked[key]) delete pagosChecked[key];
+  else pagosChecked[key] = true;
+  pagosSave();
+  pagosRender();
+}
+
+// Editar importe desde Pagos → escribe en budValues igual que Presupuesto
+function pagosEditAmount(catId, subId) {
+  var y = pagosYear, m = pagosMonth;
+  var cat = budStruct.find(function(c){ return c.id === catId; });
+  var sub = cat && cat.subs.find(function(s){ return s.id === subId; });
+  if (!cat || !sub) return;
+  openCellEdit(catId, subId, y, m, sub.name, MONTHS_ES[m]);
+}
+
+function pagosRender() {
+  var y = pagosYear, m = pagosMonth;
+  // Update month label
+  var labelEl = document.getElementById('pagos-month-label');
+  if (labelEl) labelEl.textContent = MONTHS_ES[m] + ' ' + y;
+
+  var wrap = document.getElementById('pagos-cats-wrap');
+  if (!wrap) return;
+  wrap.innerHTML = '';
+
+  var expCats = budStruct.filter(function(c){ return c.type === 'expense'; });
+
+  expCats.forEach(function(cat) {
+    var catTotal = 0, catDone = 0;
+    cat.subs.forEach(function(sub) {
+      var val = getBudVal(cat.id, sub.id, y, m);
+      catTotal += val;
+      var key = cat.id + '|' + sub.id + '|' + y + '|' + m;
+      if (pagosChecked[key]) catDone += val;
+    });
+
+    var block = document.createElement('div');
+    block.className = 'card';
+    block.style.cssText = 'padding:0;overflow:hidden;margin-bottom:10px';
+
+    // Header de categoría
+    var hdr = document.createElement('div');
+    hdr.style.cssText = 'display:flex;align-items:center;justify-content:space-between;padding:0.75rem 1.25rem;background:var(--bg2);cursor:pointer;user-select:none';
+    hdr.onclick = function() {
+      var b = document.getElementById('pagos-body-' + cat.id);
+      b.style.display = b.style.display === 'none' ? 'block' : 'none';
+    };
+    var doneCount = cat.subs.filter(function(sub){
+      var key = cat.id + '|' + sub.id + '|' + y + '|' + m;
+      return !!pagosChecked[key];
+    }).length;
+    var subsWithVal = cat.subs.filter(function(sub){ return getBudVal(cat.id, sub.id, y, m) > 0; }).length;
+    hdr.innerHTML =
+      '<div style="display:flex;align-items:center;gap:10px">' +
+        '<div style="width:10px;height:10px;border-radius:50%;background:' + cat.color + ';flex-shrink:0"></div>' +
+        '<span style="font-size:14px;font-weight:500;color:var(--text)">' + escHtml(cat.name) + '</span>' +
+        '<span style="font-size:12px;color:var(--text2)">' + doneCount + '/' + subsWithVal + ' pagados · ' + fmt(catDone) + ' de ' + fmt(catTotal) + '</span>' +
+      '</div>' +
+      '<span style="font-size:11px;color:var(--text3)">&#x25BE;</span>';
+    block.appendChild(hdr);
+
+    // Body con subcategorías
+    var body = document.createElement('div');
+    body.id = 'pagos-body-' + cat.id;
+    body.style.display = 'block';
+
+    if (cat.subs.length === 0) {
+      var empty = document.createElement('div');
+      empty.style.cssText = 'padding:10px 1.25rem;font-size:13px;color:var(--text3);border-top:0.5px solid var(--border)';
+      empty.textContent = 'Sin subcategorías. Añádelas en Presupuesto → Gestionar estructura.';
+      body.appendChild(empty);
+    }
+
+    cat.subs.forEach(function(sub) {
+      var val = getBudVal(cat.id, sub.id, y, m);
+      var key = cat.id + '|' + sub.id + '|' + y + '|' + m;
+      var isDone = !!pagosChecked[key];
+
+      var row = document.createElement('div');
+      row.style.cssText = 'display:flex;align-items:center;gap:10px;padding:9px 1.25rem;border-top:0.5px solid var(--border)';
+
+      // Círculo check
+      var checkDiv = document.createElement('div');
+      checkDiv.style.cssText = 'width:18px;height:18px;border-radius:50%;border:0.5px solid ' + (isDone ? cat.color : 'var(--border2)') + ';background:' + (isDone ? cat.color : 'transparent') + ';display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;transition:all .15s';
+      if (isDone) checkDiv.innerHTML = '<svg width="10" height="8" viewBox="0 0 10 8" fill="none"><path d="M1 4L3.5 6.5L9 1" stroke="white" stroke-width="1.5" stroke-linecap="round"/></svg>';
+      checkDiv.onclick = (function(cid, sid){ return function(){ pagosToggleItem(cid, sid); }; })(cat.id, sub.id);
+
+      // Nombre
+      var nameSpan = document.createElement('span');
+      nameSpan.style.cssText = 'flex:1;font-size:14px;color:' + (isDone ? 'var(--text3)' : 'var(--text)') + ';text-decoration:' + (isDone ? 'line-through' : 'none');
+      nameSpan.textContent = sub.name;
+
+      // Importe — clic abre modal de Presupuesto
+      var amtBtn = document.createElement('button');
+      amtBtn.style.cssText = 'font-size:13px;font-weight:500;color:' + (isDone ? 'var(--text3)' : 'var(--text)') + ';background:none;border:0.5px solid ' + (val > 0 ? 'var(--border2)' : 'var(--border)') + ';border-radius:var(--radius);padding:3px 10px;cursor:pointer;min-width:80px;text-align:right;font-family:inherit;transition:all .15s';
+      amtBtn.textContent = val > 0 ? fmt(val) : '— editar';
+      amtBtn.title = 'Clic para editar importe';
+      amtBtn.onmouseover = function(){ this.style.borderColor = 'var(--blue)'; this.style.color = 'var(--blue)'; };
+      amtBtn.onmouseout = function(){ this.style.borderColor = val > 0 ? 'var(--border2)' : 'var(--border)'; this.style.color = isDone ? 'var(--text3)' : 'var(--text)'; };
+      amtBtn.onclick = (function(cid, sid){ return function(){ pagosEditAmount(cid, sid); }; })(cat.id, sub.id);
+
+      // Nota si existe
+      var note = getBudNote(cat.id, sub.id, y, m);
+      if (note) {
+        var noteSpan = document.createElement('span');
+        noteSpan.title = note;
+        noteSpan.style.cssText = 'width:7px;height:7px;border-radius:50%;background:var(--blue);flex-shrink:0;display:inline-block';
+        row.appendChild(checkDiv);
+        row.appendChild(nameSpan);
+        row.appendChild(amtBtn);
+        row.appendChild(noteSpan);
+      } else {
+        row.appendChild(checkDiv);
+        row.appendChild(nameSpan);
+        row.appendChild(amtBtn);
+      }
+
+      body.appendChild(row);
+    });
+
+    block.appendChild(body);
+    wrap.appendChild(block);
+  });
+
+  pagosUpdateSummary();
+}
+
 // ── INIT ───────────────────────────────────────────────────────────────────
 document.getElementById('struct-type').addEventListener('change',function(){
   document.getElementById('struct-parent-row').style.display=this.value==='sub'?'':'none';
 });
 document.getElementById('inp-date').value=new Date().toISOString().split('T')[0];
+// Init pagos
+// Init pagos rendered on tab open
 fillCat(getCatsByType('ingreso'));
 updateMetrics();renderRecent();
 setTimeout(renderCharts,100);
