@@ -2518,16 +2518,27 @@ function pagosRender() {
       txBtn.title = 'Ir a Transacciones para registrar un gasto';
       txBtn.onmouseover = function(){ this.style.background=cat.color; this.style.color='#fff'; this.style.borderColor=cat.color; };
       txBtn.onmouseout  = function(){ this.style.background='none'; this.style.color='var(--text2)'; this.style.borderColor='var(--border2)'; };
-      txBtn.onclick = (function(sname, cc){ return function(){
-        // Cambiar a pestaña transacciones con tipo=gasto preseleccionado
+      txBtn.onclick = (function(subIdVal, catIdVal){ return function(){
+        // Navegar a Transacciones
         var navBtns=document.querySelectorAll('.nav-btn');
         navBtns.forEach(function(b){ if(b.textContent.trim()==='Transacciones'){ showTab('transacciones',b); } });
         setTimeout(function(){
+          // Seleccionar tipo gasto
           setType('gasto');
-          var descEl=document.getElementById('inp-desc');
-          if(descEl){ descEl.value=sname; descEl.focus(); }
+          // Seleccionar la categoría/subcategoría correcta
+          var catSel=document.getElementById('inp-cat');
+          var targetVal=subIdVal+'|'+catIdVal;
+          if(catSel){
+            for(var i=0;i<catSel.options.length;i++){
+              if(catSel.options[i].value===targetVal){ catSel.selectedIndex=i; break; }
+            }
+          }
+          // Limpiar descripción y poner foco en el importe
+          document.getElementById('inp-desc').value='';
+          var amtEl=document.getElementById('inp-amt');
+          if(amtEl){ amtEl.value=''; amtEl.focus(); amtEl.select(); }
         },80);
-      };})(sub.name, cat.color);
+      };})(sub.id, cat.id);
 
       rightDiv.appendChild(spentSpan);
       rightDiv.appendChild(sep);
