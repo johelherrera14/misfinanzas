@@ -119,6 +119,7 @@
       <button class="nav-btn" onclick="showTab('pagos',this)">Pagos</button>
       <button class="nav-btn" onclick="showTab('transacciones',this)">Transacciones</button>
       <button class="nav-btn" onclick="showTab('metas',this)">Metas</button>
+      <button class="nav-btn" onclick="showTab('creditos',this)">Créditos</button>
       <button class="nav-btn" onclick="showTab('categorias',this)">Categorías</button>
       <button class="nav-btn" onclick="showTab('config',this)">Configuración</button>
     </nav>
@@ -395,6 +396,51 @@
     </div>
   </div>
 
+
+  <!-- CRÉDITOS -->
+  <div id="tab-creditos" class="section">
+
+    <!-- Métricas resumen -->
+    <div class="metrics" style="grid-template-columns:repeat(3,1fr);margin-bottom:1.5rem">
+      <div class="metric">
+        <div class="metric-label">Deuda total pendiente</div>
+        <div class="metric-value expense" id="cred-s-deuda" style="font-size:20px">—</div>
+      </div>
+      <div class="metric">
+        <div class="metric-label">Cuotas mensuales</div>
+        <div class="metric-value" id="cred-s-cuotas" style="font-size:20px">—</div>
+      </div>
+      <div class="metric">
+        <div class="metric-label">Libre de deudas en</div>
+        <div class="metric-value" id="cred-s-fin" style="font-size:16px;margin-top:4px">—</div>
+      </div>
+    </div>
+
+    <!-- Lista de créditos -->
+    <div id="cred-list"></div>
+
+    <!-- Añadir crédito -->
+    <div class="card">
+      <div class="card-title">Vincular nuevo crédito</div>
+      <p style="font-size:13px;color:var(--text2);margin-bottom:1rem">Selecciona una subcategoría de tu presupuesto que corresponda a un crédito.</p>
+      <div class="form-row">
+        <select id="cred-sub-sel">
+          <option value="">Subcategoría del presupuesto...</option>
+        </select>
+        <input type="number" id="cred-deuda-inp" placeholder="Deuda pendiente actual" min="0" step="0.01">
+      </div>
+      <div class="form-row">
+        <input type="number" id="cred-deuda-orig-inp" placeholder="Deuda original (total del préstamo)" min="0" step="0.01">
+        <input type="number" id="cred-cuotas-inp" placeholder="Cuotas restantes" min="1" step="1">
+      </div>
+      <div class="form-row">
+        <input type="number" id="cred-tin-inp" placeholder="TIN % (opcional)" min="0" step="0.01">
+        <input type="text" id="cred-nombre-inp" placeholder="Nombre personalizado (opcional)">
+      </div>
+      <button class="btn-primary" onclick="addCredito()">Añadir crédito</button>
+    </div>
+  </div>
+
   <!-- CATEGORÍAS -->
   <div id="tab-categorias" class="section">
     <div class="grid-2">
@@ -610,6 +656,7 @@ function showTab(t,btn){
   if(t==='pagos'){pagosRender();}
   if(t==='presupuesto'){renderBudgetAnnual();}
   if(t==='metas'){renderGoals();}
+  if(t==='creditos'){creditosRender();}
   if(t==='categorias'){renderCats();}
   if(t==='config'){renderConfig();driveUpdateUI();}
 }
@@ -2106,7 +2153,7 @@ function driveGetAllData(){
   return JSON.stringify({
     transactions,goals,customCats,currency:currencyConfig,
     budStruct,budValues,budNotes,monthBudgets,
-    pagosChecked,pagosSpent
+    pagosChecked,pagosSpent,creditos
   },null,2);
 }
 
@@ -2123,6 +2170,7 @@ function driveApplyData(raw){
     if(d.monthBudgets) monthBudgets=d.monthBudgets;
     if(d.pagosChecked) pagosChecked=d.pagosChecked;
     if(d.pagosSpent) pagosSpent=d.pagosSpent;
+    if(d.creditos) creditos=d.creditos;
     // Persist to localStorage
     saveTx();saveGoals();saveCats();saveBudStruct();saveBudValues();saveMonthBudgets();pagosSave();
     save('fin_currency',currencyConfig);
@@ -2649,6 +2697,208 @@ function pagosRender() {
   });
 
   pagosUpdateSummary();
+}
+
+
+// ── CRÉDITOS ────────────────────────────────────────────────────────────────
+// creditos: [{id, subId, catId, nombre, deudaOrig, deudaPend, cuotasRest, tin}]
+var creditos = load('fin_creditos', []);
+
+function saveCreditos(){ save('fin_creditos', creditos); }
+
+function addCredito(){
+  var sel = document.getElementById('cred-sub-sel').value;
+  if(!sel){ alert('Selecciona una subcategoría del presupuesto.'); return; }
+  var parts = sel.split('|');
+  var subId = parts[0], catId = parts[1];
+  var deudaPend = parseFloat(document.getElementById('cred-deuda-inp').value) || 0;
+  var deudaOrig = parseFloat(document.getElementById('cred-deuda-orig-inp').value) || deudaPend;
+  var cuotasRest = parseInt(document.getElementById('cred-cuotas-inp').value) || 0;
+  var tin = parseFloat(document.getElementById('cred-tin-inp').value) || 0;
+  var nombre = document.getElementById('cred-nombre-inp').value.trim();
+  if(!deudaPend || !cuotasRest){ alert('Introduce al menos la deuda pendiente y las cuotas restantes.'); return; }
+  // Evitar duplicados
+  if(creditos.find(function(c){ return c.subId===subId && c.catId===catId; })){
+    alert('Esta subcategoría ya está vinculada como crédito.'); return;
+  }
+  creditos.push({ id: Date.now(), subId, catId, nombre, deudaOrig, deudaPend, cuotasRest, tin });
+  saveCreditos();
+  // Reset form
+  document.getElementById('cred-sub-sel').value = '';
+  document.getElementById('cred-deuda-inp').value = '';
+  document.getElementById('cred-deuda-orig-inp').value = '';
+  document.getElementById('cred-cuotas-inp').value = '';
+  document.getElementById('cred-tin-inp').value = '';
+  document.getElementById('cred-nombre-inp').value = '';
+  creditosRender();
+}
+
+function deleteCredito(id){
+  if(!confirm('¿Eliminar este crédito?')) return;
+  creditos = creditos.filter(function(c){ return c.id !== id; });
+  saveCreditos();
+  creditosRender();
+}
+
+function updateCredito(id, field, val){
+  var c = creditos.find(function(c){ return c.id === id; });
+  if(!c) return;
+  c[field] = field === 'nombre' ? val : (parseFloat(val) || 0);
+  if(field === 'cuotasRest') c[field] = parseInt(val) || 0;
+  saveCreditos();
+  creditosRender();
+}
+
+function creditoGetCuota(c){
+  // Cuota del mes actual desde presupuesto
+  var now = new Date();
+  return getBudVal(c.catId, c.subId, now.getFullYear(), now.getMonth());
+}
+
+function creditoGetLabel(c){
+  if(c.nombre) return c.nombre;
+  var cat = budStruct.find(function(x){ return x.id === c.catId; });
+  var sub = cat && cat.subs.find(function(x){ return x.id === c.subId; });
+  return sub ? sub.name : 'Crédito';
+}
+
+function creditoGetColor(c){
+  var cat = budStruct.find(function(x){ return x.id === c.catId; });
+  return cat ? cat.color : '#888780';
+}
+
+function creditosRender(){
+  // Rellenar selector de subcategorías
+  var sel = document.getElementById('cred-sub-sel');
+  if(sel){
+    var html = '<option value="">Subcategoría del presupuesto...</option>';
+    var linked = creditos.map(function(c){ return c.subId+'|'+c.catId; });
+    budStruct.filter(function(c){ return c.type==='expense'; }).forEach(function(cat){
+      if(!cat.subs.length) return;
+      html += '<optgroup label="'+cat.name+'">';
+      cat.subs.forEach(function(sub){
+        var val = sub.id+'|'+cat.id;
+        var already = linked.indexOf(val) !== -1;
+        html += '<option value="'+val+'"'+(already?' disabled':'')+'>'+sub.name+(already?' (ya vinculado)':'')+'</option>';
+      });
+      html += '</optgroup>';
+    });
+    sel.innerHTML = html;
+  }
+
+  var list = document.getElementById('cred-list');
+  if(!list) return;
+
+  if(!creditos.length){
+    list.innerHTML = '<div class="notice" style="margin-bottom:1rem">No tienes créditos vinculados todavía. Usa el formulario de abajo para añadir uno.</div>';
+    creditosUpdateSummary();
+    return;
+  }
+
+  list.innerHTML = '';
+  creditos.forEach(function(c){
+    var cuota = creditoGetCuota(c);
+    var label = creditoGetLabel(c);
+    var color = creditoGetColor(c);
+    var pct = c.deudaOrig > 0 ? Math.min(100, Math.round((c.deudaOrig - c.deudaPend) / c.deudaOrig * 100)) : 0;
+    var amortizado = c.deudaOrig - c.deudaPend;
+
+    // Cálculo de intereses si hay TIN
+    var interesMes = 0, capitalMes = 0;
+    if(c.tin > 0 && cuota > 0 && c.deudaPend > 0){
+      interesMes = Math.round(c.deudaPend * (c.tin/100/12) * 100) / 100;
+      capitalMes = Math.round((cuota - interesMes) * 100) / 100;
+    }
+
+    // Fecha estimada fin
+    var fechaFin = '';
+    if(c.cuotasRest > 0){
+      var d = new Date();
+      d.setMonth(d.getMonth() + c.cuotasRest);
+      fechaFin = d.toLocaleDateString('es-ES', {month:'short', year:'numeric'});
+    }
+
+    var barColor = pct >= 75 ? 'var(--green)' : pct >= 40 ? 'var(--blue)' : 'var(--amber)';
+
+    var card = document.createElement('div');
+    card.className = 'card';
+    card.style.marginBottom = '1rem';
+
+    card.innerHTML =
+      '<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:1rem">' +
+        '<div style="display:flex;align-items:center;gap:10px;min-width:0">' +
+          '<div style="width:10px;height:10px;border-radius:50%;background:'+color+';flex-shrink:0"></div>' +
+          '<span style="font-size:15px;font-weight:500;color:var(--text)">'+label+'</span>' +
+          (fechaFin ? '<span style="font-size:12px;color:var(--text3)">· termina '+fechaFin+'</span>' : '') +
+        '</div>' +
+        '<button onclick="deleteCredito('+c.id+')" style="background:none;border:none;cursor:pointer;color:var(--text3);font-size:18px;line-height:1;padding:0 4px" title="Eliminar">×</button>' +
+      '</div>' +
+
+      // Métricas
+      '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:1rem">' +
+        '<div style="background:var(--bg2);border-radius:var(--radius);padding:10px 12px">' +
+          '<div style="font-size:11px;color:var(--text2);margin-bottom:4px">Deuda pendiente</div>' +
+          '<input type="number" value="'+c.deudaPend+'" min="0" step="0.01" onchange="updateCredito('+c.id+',\'deudaPend\',this.value)" style="font-size:15px;font-weight:500;color:var(--red);width:100%;background:none;border:none;padding:0;font-family:inherit">' +
+        '</div>' +
+        '<div style="background:var(--bg2);border-radius:var(--radius);padding:10px 12px">' +
+          '<div style="font-size:11px;color:var(--text2);margin-bottom:4px">Cuota mensual</div>' +
+          '<div style="font-size:15px;font-weight:500;color:var(--text)">'+(cuota > 0 ? fmt(cuota) : '<span style="color:var(--text3);font-size:12px">Sin importe en presupuesto</span>')+'</div>' +
+        '</div>' +
+        '<div style="background:var(--bg2);border-radius:var(--radius);padding:10px 12px">' +
+          '<div style="font-size:11px;color:var(--text2);margin-bottom:4px">Cuotas restantes</div>' +
+          '<input type="number" value="'+c.cuotasRest+'" min="0" step="1" onchange="updateCredito('+c.id+',\'cuotasRest\',this.value)" style="font-size:15px;font-weight:500;color:var(--text);width:100%;background:none;border:none;padding:0;font-family:inherit">' +
+        '</div>' +
+        '<div style="background:var(--bg2);border-radius:var(--radius);padding:10px 12px">' +
+          '<div style="font-size:11px;color:var(--text2);margin-bottom:4px">TIN %</div>' +
+          '<input type="number" value="'+(c.tin||'')+'" min="0" step="0.01" placeholder="—" onchange="updateCredito('+c.id+',\'tin\',this.value)" style="font-size:15px;font-weight:500;color:var(--text);width:100%;background:none;border:none;padding:0;font-family:inherit">' +
+        '</div>' +
+      '</div>' +
+
+      // Barra de progreso
+      '<div style="margin-bottom:'+(interesMes>0?'0.75rem':'0')+'">' +
+        '<div style="display:flex;justify-content:space-between;font-size:12px;color:var(--text2);margin-bottom:5px">' +
+          '<span>Amortizado '+pct+'% · '+fmt(Math.max(0,amortizado))+'</span>' +
+          '<span>Pendiente '+fmt(c.deudaPend)+'</span>' +
+        '</div>' +
+        '<div style="height:8px;background:var(--bg3);border-radius:4px;overflow:hidden">' +
+          '<div style="height:100%;border-radius:4px;background:'+barColor+';width:'+pct+'%;transition:width .5s"></div>' +
+        '</div>' +
+      '</div>' +
+
+      // Desglose cuota (si hay TIN)
+      (interesMes > 0 ?
+        '<div style="display:flex;gap:16px;margin-top:0.75rem;padding:10px 12px;background:var(--bg2);border-radius:var(--radius);font-size:12px">' +
+          '<span style="color:var(--text2)">Próxima cuota → </span>' +
+          '<span style="color:var(--red)">Intereses: '+fmt(interesMes)+'</span>' +
+          '<span style="color:var(--green)">Capital: '+fmt(Math.max(0,capitalMes))+'</span>' +
+        '</div>' : '') +
+      '';
+
+    list.appendChild(card);
+  });
+
+  creditosUpdateSummary();
+}
+
+function creditosUpdateSummary(){
+  var totalDeuda = 0, totalCuotas = 0, maxCuotas = 0;
+  creditos.forEach(function(c){
+    totalDeuda += c.deudaPend;
+    totalCuotas += creditoGetCuota(c);
+    if(c.cuotasRest > maxCuotas) maxCuotas = c.cuotasRest;
+  });
+  var deudaEl = document.getElementById('cred-s-deuda');
+  var cuotasEl = document.getElementById('cred-s-cuotas');
+  var finEl = document.getElementById('cred-s-fin');
+  if(deudaEl) deudaEl.textContent = creditos.length ? fmt(totalDeuda) : '—';
+  if(cuotasEl) cuotasEl.textContent = creditos.length ? fmt(totalCuotas) : '—';
+  if(finEl){
+    if(maxCuotas > 0){
+      var d = new Date();
+      d.setMonth(d.getMonth() + maxCuotas);
+      finEl.textContent = d.toLocaleDateString('es-ES', {month:'long', year:'numeric'});
+    } else { finEl.textContent = '—'; }
+  }
 }
 
 // ── INIT ───────────────────────────────────────────────────────────────────
