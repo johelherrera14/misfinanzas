@@ -1633,18 +1633,6 @@ function renderAnnualView(){
     });
   }
 
-  // ── Fila Gastos (desplegable) ────────────────────────────────────────────
-  var expOpen=!!budSummaryExp['expense'];
-  html+='<tr onclick="toggleBudSummary(\'expense\')" style="cursor:pointer;border-bottom:0.5px solid var(--border2)">';
-  html+='<td style="padding:9px 4px 9px 0.75rem;font-size:12px;font-weight:500;color:#D85A30">'
-    +'<span style="font-size:9px;color:var(--text3);margin-right:5px">'+(expOpen?'▼':'▶')+'</span>Gastos</td>';
-  html+='<td style="border-right:0.5px solid var(--border)"></td>';
-  for(var mi=0;mi<12;mi++){var v=expM[mi];var isCur=y===now.getFullYear()&&mi===now.getMonth();html+='<td style="'+SR+(isCur?'background:rgba(0,0,0,.03);':'')+'color:#D85A30">'+(v>0?fmtC(v):'—')+'</td>';}
-  html+='<td style="'+SR+'border-left:0.5px solid var(--border);padding-right:6px;color:#D85A30">'+(yExp>0?fmtC(yExp):'—')+'</td>';
-  html+='<td style="padding:4px 1rem 4px 2px;text-align:center"><canvas id="spark__exp" width="48" height="22" style="display:block;margin:0 auto"></canvas></td>';
-  html+='</tr>';
-  if(expOpen) renderCatRows('expense','#D85A30');
-
   // ── Fila Ingresos (desplegable) ──────────────────────────────────────────
   var incOpen=!!budSummaryExp['income'];
   html+='<tr onclick="toggleBudSummary(\'income\')" style="cursor:pointer;border-bottom:0.5px solid var(--border)">';
@@ -1656,6 +1644,18 @@ function renderAnnualView(){
   html+='<td style="padding:4px 1rem 4px 2px;text-align:center"><canvas id="spark__inc" width="48" height="22" style="display:block;margin:0 auto"></canvas></td>';
   html+='</tr>';
   if(incOpen) renderCatRows('income','#1D9E75');
+
+  // ── Fila Gastos (desplegable) ────────────────────────────────────────────
+  var expOpen=!!budSummaryExp['expense'];
+  html+='<tr onclick="toggleBudSummary(\'expense\')" style="cursor:pointer;border-bottom:0.5px solid var(--border2)">';
+  html+='<td style="padding:9px 4px 9px 0.75rem;font-size:12px;font-weight:500;color:#D85A30">'
+    +'<span style="font-size:9px;color:var(--text3);margin-right:5px">'+(expOpen?'▼':'▶')+'</span>Gastos</td>';
+  html+='<td style="border-right:0.5px solid var(--border)"></td>';
+  for(var mi=0;mi<12;mi++){var v=expM[mi];var isCur=y===now.getFullYear()&&mi===now.getMonth();html+='<td style="'+SR+(isCur?'background:rgba(0,0,0,.03);':'')+'color:#D85A30">'+(v>0?fmtC(v):'—')+'</td>';}
+  html+='<td style="'+SR+'border-left:0.5px solid var(--border);padding-right:6px;color:#D85A30">'+(yExp>0?fmtC(yExp):'—')+'</td>';
+  html+='<td style="padding:4px 1rem 4px 2px;text-align:center"><canvas id="spark__exp" width="48" height="22" style="display:block;margin:0 auto"></canvas></td>';
+  html+='</tr>';
+  if(expOpen) renderCatRows('expense','#D85A30');
 
   // ── Separador ─────────────────────────────────────────────────────────────
   html+='<tr><td colspan="16" style="padding:3px 0;background:var(--bg3)"></td></tr>';
