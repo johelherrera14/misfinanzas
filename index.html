@@ -423,21 +423,46 @@
     <div class="card">
       <div class="card-title">Vincular nuevo crédito</div>
       <p style="font-size:13px;color:var(--text2);margin-bottom:1rem">Selecciona una subcategoría de tu presupuesto que corresponda a un crédito.</p>
+
+      <!-- Subcategoría + nombre -->
       <div class="form-row">
         <select id="cred-sub-sel">
           <option value="">Subcategoría del presupuesto...</option>
         </select>
-        <input type="number" id="cred-deuda-inp" placeholder="Deuda pendiente actual" min="0" step="0.01">
-      </div>
-      <div class="form-row">
-        <input type="number" id="cred-deuda-orig-inp" placeholder="Deuda original (total del préstamo)" min="0" step="0.01">
-        <input type="number" id="cred-cuotas-inp" placeholder="Cuotas restantes" min="1" step="1">
-      </div>
-      <div class="form-row">
-        <input type="number" id="cred-tin-inp" placeholder="TIN % (opcional)" min="0" step="0.01">
         <input type="text" id="cred-nombre-inp" placeholder="Nombre personalizado (opcional)">
       </div>
-      <div class="form-row" style="margin-bottom:0">
+
+      <!-- Selector de modo -->
+      <div class="radio-group" style="margin-bottom:1rem">
+        <button class="radio-btn active-income" id="cred-mode-completo" onclick="credSetMode('completo')">Datos completos</button>
+        <button class="radio-btn" id="cred-mode-cuotas" onclick="credSetMode('cuotas')">Solo cuotas</button>
+      </div>
+
+      <!-- Modo completo -->
+      <div id="cred-campos-completo">
+        <div class="form-row">
+          <input type="number" id="cred-deuda-orig-inp" placeholder="Deuda original (total del préstamo)" min="0" step="0.01">
+          <input type="number" id="cred-deuda-inp" placeholder="Deuda pendiente actual" min="0" step="0.01">
+        </div>
+        <div class="form-row">
+          <input type="number" id="cred-cuotas-inp" placeholder="Cuotas restantes" min="1" step="1">
+          <input type="number" id="cred-tin-inp" placeholder="TIN % (opcional)" min="0" step="0.01">
+        </div>
+      </div>
+
+      <!-- Modo solo cuotas -->
+      <div id="cred-campos-cuotas" style="display:none">
+        <div class="form-row">
+          <input type="number" id="cred-cuotas-total-inp" placeholder="Cuotas totales del préstamo" min="1" step="1">
+          <input type="number" id="cred-cuotas-pagadas-inp" placeholder="Cuotas ya pagadas" min="0" step="1">
+        </div>
+        <div class="notice" style="margin-bottom:0.5rem;font-size:12px">
+          La deuda pendiente se estimará como: cuota mensual × cuotas restantes. Podrás ajustarla después.
+        </div>
+      </div>
+
+      <!-- Participantes -->
+      <div class="form-row" style="margin-bottom:0;margin-top:0.5rem">
         <div>
           <div class="field-label" style="margin-bottom:4px">Participantes (opcional)</div>
           <div id="cred-participantes-wrap" style="display:flex;flex-direction:column;gap:6px"></div>
@@ -2766,6 +2791,18 @@ function saveCreditos(){ save('fin_creditos', creditos); }
 
 // Gestión de participantes en el formulario de nuevo crédito
 var credFormParticipantes = [];
+var credFormMode = 'completo';
+
+function credSetMode(mode){
+  credFormMode = mode;
+  var isCompleto = mode === 'completo';
+  document.getElementById('cred-campos-completo').style.display = isCompleto ? '' : 'none';
+  document.getElementById('cred-campos-cuotas').style.display = isCompleto ? 'none' : '';
+  var btnC = document.getElementById('cred-mode-completo');
+  var btnQ = document.getElementById('cred-mode-cuotas');
+  if(btnC) btnC.className = isCompleto ? 'radio-btn active-income' : 'radio-btn';
+  if(btnQ) btnQ.className = isCompleto ? 'radio-btn' : 'radio-btn active-income';
+}
 
 function credAddParticipante(){
   credFormParticipantes.push({nombre:'', pct:0});
@@ -2807,12 +2844,26 @@ function addCredito(){
   if(!sel){ alert('Selecciona una subcategoría del presupuesto.'); return; }
   var parts = sel.split('|');
   var subId = parts[0], catId = parts[1];
-  var deudaPend = parseFloat(document.getElementById('cred-deuda-inp').value) || 0;
-  var deudaOrig = parseFloat(document.getElementById('cred-deuda-orig-inp').value) || deudaPend;
-  var cuotasRest = parseInt(document.getElementById('cred-cuotas-inp').value) || 0;
-  var tin = parseFloat(document.getElementById('cred-tin-inp').value) || 0;
   var nombre = document.getElementById('cred-nombre-inp').value.trim();
-  if(!deudaPend || !cuotasRest){ alert('Introduce al menos la deuda pendiente y las cuotas restantes.'); return; }
+  var deudaPend, deudaOrig, cuotasRest, tin;
+
+  if(credFormMode === 'cuotas'){
+    var cuotasTotal = parseInt(document.getElementById('cred-cuotas-total-inp').value) || 0;
+    var cuotasPagadas = parseInt(document.getElementById('cred-cuotas-pagadas-inp').value) || 0;
+    if(!cuotasTotal){ alert('Introduce las cuotas totales del préstamo.'); return; }
+    cuotasRest = Math.max(0, cuotasTotal - cuotasPagadas);
+    // Estimar deuda pendiente usando la cuota del presupuesto
+    var cuotaBudget = getBudVal(catId, subId, new Date().getFullYear(), new Date().getMonth());
+    deudaPend = cuotaBudget > 0 ? Math.round(cuotaBudget * cuotasRest * 100) / 100 : 0;
+    deudaOrig = cuotaBudget > 0 ? Math.round(cuotaBudget * cuotasTotal * 100) / 100 : 0;
+    tin = 0;
+  } else {
+    deudaPend = parseFloat(document.getElementById('cred-deuda-inp').value) || 0;
+    deudaOrig = parseFloat(document.getElementById('cred-deuda-orig-inp').value) || deudaPend;
+    cuotasRest = parseInt(document.getElementById('cred-cuotas-inp').value) || 0;
+    tin = parseFloat(document.getElementById('cred-tin-inp').value) || 0;
+    if(!deudaPend || !cuotasRest){ alert('Introduce al menos la deuda pendiente y las cuotas restantes.'); return; }
+  }
   // Evitar duplicados
   if(creditos.find(function(c){ return c.subId===subId && c.catId===catId; })){
     alert('Esta subcategoría ya está vinculada como crédito.'); return;
@@ -2829,6 +2880,8 @@ function addCredito(){
   document.getElementById('cred-cuotas-inp').value = '';
   document.getElementById('cred-tin-inp').value = '';
   document.getElementById('cred-nombre-inp').value = '';
+  document.getElementById('cred-cuotas-total-inp') && (document.getElementById('cred-cuotas-total-inp').value = '');
+  document.getElementById('cred-cuotas-pagadas-inp') && (document.getElementById('cred-cuotas-pagadas-inp').value = '');
   credFormParticipantes = [];
   credRenderParticipantes();
   creditosRender();
