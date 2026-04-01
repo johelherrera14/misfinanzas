@@ -2777,7 +2777,13 @@ function credRemoveParticipante(i){
 }
 function credUpdateParticipante(i, field, val){
   credFormParticipantes[i][field] = field==='pct' ? (parseFloat(val)||0) : val;
-  credRenderParticipantes();
+  if(field === 'pct') credUpdateMiPct();
+}
+function credUpdateMiPct(){
+  var totalOtros = credFormParticipantes.reduce(function(s,p){ return s+p.pct; },0);
+  var miPct = Math.max(0, 100 - totalOtros);
+  var el = document.getElementById('cred-mi-pct-preview');
+  if(el){ el.textContent = miPct+'%'; el.style.color = miPct < 100 ? 'var(--blue)' : 'var(--green)'; }
 }
 function credRenderParticipantes(){
   var wrap = document.getElementById('cred-participantes-wrap');
@@ -2793,10 +2799,7 @@ function credRenderParticipantes(){
     wrap.appendChild(row);
   });
   // Calcular mi % = 100 - suma de otros
-  var totalOtros = credFormParticipantes.reduce(function(s,p){return s+p.pct;},0);
-  var miPct = Math.max(0, 100 - totalOtros);
-  var el = document.getElementById('cred-mi-pct-preview');
-  if(el){ el.textContent = miPct+'%'; el.style.color = miPct < 100 ? 'var(--blue)' : 'var(--green)'; }
+  credUpdateMiPct();
 }
 
 function addCredito(){
@@ -3073,7 +3076,11 @@ function ceRemoveParticipante(i){
 }
 function ceUpdateParticipante(i, field, val){
   credEditParticipantes[i][field] = field === 'pct' ? (parseFloat(val)||0) : val;
-  ceRenderParticipantes();
+  // Solo actualizar el % visible, sin re-renderizar el DOM completo
+  if(field === 'pct') ceUpdateMiPct();
+}
+function ceUpdateMiPct(){
+  ceUpdateMiPct();
 }
 function ceRenderParticipantes(){
   var wrap = document.getElementById('ce-participantes-wrap');
