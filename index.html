@@ -561,6 +561,53 @@
 
 
 
+
+  <!-- Modal: editar crédito -->
+  <div id="cred-edit-modal" class="modal-backdrop" style="display:none" onclick="if(event.target===this)credCloseEdit()">
+    <div class="modal" style="max-width:520px;max-height:85vh;overflow-y:auto">
+      <div class="modal-title">Editar crédito</div>
+
+      <div style="margin-bottom:8px">
+        <div class="field-label">Nombre</div>
+        <input type="text" id="ce-nombre" placeholder="Nombre personalizado">
+      </div>
+      <div class="form-row">
+        <div>
+          <div class="field-label">Deuda original</div>
+          <input type="number" id="ce-deuda-orig" min="0" step="0.01" placeholder="0">
+        </div>
+        <div>
+          <div class="field-label">Deuda pendiente actual</div>
+          <input type="number" id="ce-deuda-pend" min="0" step="0.01" placeholder="0">
+        </div>
+      </div>
+      <div class="form-row">
+        <div>
+          <div class="field-label">Cuotas restantes</div>
+          <input type="number" id="ce-cuotas" min="0" step="1" placeholder="0">
+        </div>
+        <div>
+          <div class="field-label">TIN %</div>
+          <input type="number" id="ce-tin" min="0" step="0.01" placeholder="0">
+        </div>
+      </div>
+
+      <div style="border-top:0.5px solid var(--border);margin:1rem 0;padding-top:1rem">
+        <div class="field-label" style="margin-bottom:8px">Participantes</div>
+        <div id="ce-participantes-wrap" style="display:flex;flex-direction:column;gap:6px;margin-bottom:8px"></div>
+        <div style="display:flex;align-items:center;justify-content:space-between">
+          <button type="button" onclick="ceAddParticipante()" class="btn-sm">+ Añadir participante</button>
+          <span style="font-size:13px;color:var(--text2)">Tu parte: <strong id="ce-mi-pct" style="color:var(--green)">100%</strong></span>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button class="btn-ghost" onclick="credCloseEdit()">Cancelar</button>
+        <button class="btn-primary" onclick="credSaveEdit()" style="flex:1;margin-top:0">Guardar cambios</button>
+      </div>
+    </div>
+  </div>
+
 </main>
 
 <script>
@@ -2898,7 +2945,10 @@ function creditosRender(){
           '<span style="font-size:15px;font-weight:500;color:var(--text)">'+label+'</span>' +
           (fechaFin ? '<span style="font-size:12px;color:var(--text3)">· termina '+fechaFin+'</span>' : '') +
         '</div>' +
+        '<div style="display:flex;gap:6px">' +
+        '<button onclick="credOpenEdit('+c.id+')" style="background:none;border:0.5px solid var(--border2);border-radius:var(--radius);cursor:pointer;color:var(--text2);font-size:12px;padding:4px 10px;font-family:inherit;transition:all .15s" title="Editar crédito">Editar</button>' +
         '<button onclick="deleteCredito('+c.id+')" style="background:none;border:none;cursor:pointer;color:var(--text3);font-size:18px;line-height:1;padding:0 4px" title="Eliminar">×</button>' +
+        '</div>' +
       '</div>' +
 
       // Métricas
@@ -2968,6 +3018,82 @@ function creditosUpdateSummary(){
   }
 }
 
+
+// ── EDICIÓN DE CRÉDITO ────────────────────────────────────────────────────
+var credEditId = null;
+var credEditParticipantes = [];
+
+function credOpenEdit(id){
+  var c = creditos.find(function(x){ return x.id === id; });
+  if(!c) return;
+  credEditId = id;
+  credEditParticipantes = (c.participantes || []).map(function(p){ return {nombre:p.nombre, pct:p.pct}; });
+
+  document.getElementById('ce-nombre').value = c.nombre || '';
+  document.getElementById('ce-deuda-orig').value = c.deudaOrig || '';
+  document.getElementById('ce-deuda-pend').value = c.deudaPend || '';
+  document.getElementById('ce-cuotas').value = c.cuotasRest || '';
+  document.getElementById('ce-tin').value = c.tin || '';
+
+  ceRenderParticipantes();
+  document.getElementById('cred-edit-modal').style.display = 'flex';
+}
+
+function credCloseEdit(){
+  document.getElementById('cred-edit-modal').style.display = 'none';
+  credEditId = null;
+}
+
+function credSaveEdit(){
+  if(!confirm('¿Guardar los cambios en este crédito?')) return;
+  var c = creditos.find(function(x){ return x.id === credEditId; });
+  if(!c){ credCloseEdit(); return; }
+
+  c.nombre     = document.getElementById('ce-nombre').value.trim();
+  c.deudaOrig  = parseFloat(document.getElementById('ce-deuda-orig').value) || 0;
+  c.deudaPend  = parseFloat(document.getElementById('ce-deuda-pend').value) || 0;
+  c.cuotasRest = parseInt(document.getElementById('ce-cuotas').value) || 0;
+  c.tin        = parseFloat(document.getElementById('ce-tin').value) || 0;
+  c.participantes = credEditParticipantes.filter(function(p){ return p.nombre && p.pct > 0; });
+  var totalOtros = c.participantes.reduce(function(s,p){ return s + p.pct; }, 0);
+  c.miPct = Math.max(0, 100 - totalOtros);
+
+  saveCreditos();
+  credCloseEdit();
+  creditosRender();
+}
+
+function ceAddParticipante(){
+  credEditParticipantes.push({nombre:'', pct:0});
+  ceRenderParticipantes();
+}
+function ceRemoveParticipante(i){
+  credEditParticipantes.splice(i, 1);
+  ceRenderParticipantes();
+}
+function ceUpdateParticipante(i, field, val){
+  credEditParticipantes[i][field] = field === 'pct' ? (parseFloat(val)||0) : val;
+  ceRenderParticipantes();
+}
+function ceRenderParticipantes(){
+  var wrap = document.getElementById('ce-participantes-wrap');
+  if(!wrap) return;
+  wrap.innerHTML = '';
+  credEditParticipantes.forEach(function(p, i){
+    var row = document.createElement('div');
+    row.style.cssText = 'display:flex;gap:6px;align-items:center';
+    row.innerHTML =
+      '<input type="text" value="'+p.nombre+'" placeholder="Nombre" oninput="ceUpdateParticipante('+i+',\'nombre\',this.value)" style="flex:1;font-size:13px">'+
+      '<input type="number" value="'+(p.pct||'')+'" placeholder="%" min="0" max="100" step="1" oninput="ceUpdateParticipante('+i+',\'pct\',this.value)" style="width:70px;font-size:13px">'+
+      '<button onclick="ceRemoveParticipante('+i+')" style="background:none;border:none;cursor:pointer;color:var(--text3);font-size:16px;line-height:1;padding:2px 4px">×</button>';
+    wrap.appendChild(row);
+  });
+  var totalOtros = credEditParticipantes.reduce(function(s,p){ return s + p.pct; }, 0);
+  var miPct = Math.max(0, 100 - totalOtros);
+  var el = document.getElementById('ce-mi-pct');
+  if(el){ el.textContent = miPct+'%'; el.style.color = miPct < 100 ? 'var(--blue)' : 'var(--green)'; }
+}
+
 // ── INIT ───────────────────────────────────────────────────────────────────
 document.getElementById('struct-type').addEventListener('change',function(){
   document.getElementById('struct-parent-row').style.display=this.value==='sub'?'':'none';
@@ -2979,7 +3105,7 @@ fillCatFromBudget('ingreso');
 updateMetrics();renderRecent();
 setTimeout(renderCharts,100);
 setTimeout(driveInit,1000);
-document.addEventListener('keydown',function(e){if(e.key==='Escape'){closeEditModal();pagosCloseSpentModal();}});
+document.addEventListener('keydown',function(e){if(e.key==='Escape'){closeEditModal();pagosCloseSpentModal();credCloseEdit();}});
 </script>
 <div id="bud-tooltip" style="display:none;position:fixed;z-index:500;background:var(--text);color:var(--bg);font-size:12px;padding:6px 10px;border-radius:6px;max-width:220px;line-height:1.4;pointer-events:none;box-shadow:0 4px 12px rgba(0,0,0,.2)"></div>
 </body>
