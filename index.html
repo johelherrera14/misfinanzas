@@ -1144,6 +1144,8 @@ function yearTypeTotals(type,y){
 
 // expanded state
 var budExpanded={};
+var budSummaryExp=load('fin_bsumexp',{income:false,expense:false});
+function toggleBudSummary(t){budSummaryExp[t]=!budSummaryExp[t];save('fin_bsumexp',budSummaryExp);renderAnnualView();}
 function toggleCat(catId){
   budExpanded[catId]=!budExpanded[catId];
   renderAnnualView();
@@ -1562,142 +1564,127 @@ function renderAnnualView(){
   html+='<th style="'+TH+'text-align:center;padding-right:1rem;color:var(--text2)">Tend.</th>';
   html+='</tr></thead><tbody>';
 
-  // Sections: income first, then expense
-  ['income','expense'].forEach(function(type){
-    var cats=budStruct.filter(c=>c.type===type);
-    if(!cats.length) return;
-    var label=type==='expense'?'Gastos':'Ingresos';
-    var labelColor=type==='expense'?'#D85A30':'#1D9E75';
-    html+='<tr><td colspan="16" style="padding:8px 1rem 3px;font-size:9px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--text3)">'+label+'</td></tr>';
+  // ── Calcular totales ──────────────────────────────────────────────────────
+  // Aliases para compatibilidad con sparklines y gráficas
+  var expMonths, incMonths, savMonths, yearInc, yearExp, yearSav;
+  var SR='padding:9px 3px;font-size:11px;font-weight:500;text-align:right;white-space:nowrap;';
+  var incM=yearTypeTotals('income',y);
+  var expM=yearTypeTotals('expense',y);
+  var savM=incM.map((v,i)=>v-expM[i]);
+  var yInc=incM.reduce((a,b)=>a+b,0);
+  var yExp=expM.reduce((a,b)=>a+b,0);
+  var ySav=yInc-yExp;
+  // Aliases para el resto del código (sparklines, gráficas)
+  expMonths=expM; incMonths=incM; savMonths=savM;
+  yearInc=yInc; yearExp=yExp; yearSav=ySav;
 
+  // ── Helper: fila de categoría (reutilizable para gastos e ingresos) ──────
+  function renderCatRows(type, labelColor){
+    var cats=budStruct.filter(function(c){return c.type===type;});
     cats.forEach(function(cat){
       var isOpen=!!budExpanded[cat.id];
-      var catMonths=[];
-      for(var mi=0;mi<12;mi++) catMonths.push(catMonthTotal(cat,y,mi));
-      var catYear=catMonths.reduce((a,b)=>a+b,0);
-      var isCatRow=true;
-
-      // Category row — draggable
-      var catIdx=budStruct.indexOf(cat);
-      html+='<tr id="catrow_'+cat.id+'" draggable="true" '
-        +'ondragstart="tableDragStart(event,\''+cat.id+'\')" '
-        +'ondragover="tableDragOver(event,\''+cat.id+'\')" '
-        +'ondrop="tableDrop(event,\''+cat.id+'\')" '
-        +'ondragend="tableDragEnd()" '
-        +'style="border-bottom:0.5px solid var(--border);background:var(--bg2);transition:opacity .15s">';
-      html+='<td style="padding:7px 4px 7px 0.5rem;font-size:12px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">';
-      html+='<span style="color:var(--text3);font-size:13px;margin-right:4px;cursor:grab;vertical-align:middle;user-select:none">⠿</span>';
+      var catM=[];for(var mi=0;mi<12;mi++)catM.push(catMonthTotal(cat,y,mi));
+      var catY=catM.reduce((a,b)=>a+b,0);
+      var rowStyle='border-bottom:0.5px solid var(--border);background:var(--bg2);transition:opacity .15s';
+      html+='<tr id="catrow_'+cat.id+'" draggable="true"'
+        +' ondragstart="tableDragStart(event,\'' +cat.id+ '\')"'
+        +' ondragover="tableDragOver(event,\'' +cat.id+ '\')"'
+        +' ondrop="tableDrop(event,\'' +cat.id+ '\')"'
+        +' ondragend="tableDragEnd()"'
+        +' style="'+rowStyle+'">';
+      html+='<td style="padding:7px 4px 7px 1.5rem;font-size:12px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">';
+      html+='<span style="color:var(--text3);font-size:13px;margin-right:4px;cursor:grab;vertical-align:middle;user-select:none">&#8995;</span>';
       html+='<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:'+cat.color+';margin-right:4px;vertical-align:middle"></span>';
-      html+='<span onmousedown="catNameMouseDown(event,\''+cat.id+'\')" style="cursor:pointer;user-select:none" title="Clic: expandir · Doble clic: renombrar">';
+      html+='<span onmousedown="catNameMouseDown(event,\'' +cat.id+ '\')" style="cursor:pointer;user-select:none" title="Clic: expandir">';
       html+='<span style="color:var(--text2);margin-right:3px;font-size:10px">'+(isOpen?'▾':'▸')+'</span>';
       html+=escHtml(cat.name)+'</span></td>';
       html+='<td style="border-right:0.5px solid var(--border)"></td>';
       for(var mi=0;mi<12;mi++){
-        var v=catMonths[mi];
-        var isCur=y===now.getFullYear()&&mi===now.getMonth();
+        var v=catM[mi];var isCur=y===now.getFullYear()&&mi===now.getMonth();
         html+='<td style="'+TD+'background:'+(isCur?'rgba(0,0,0,.03)':'var(--bg2)')+';font-weight:500;color:'+labelColor+'">'+(v>0?fmtC(v):'<span style="color:var(--text3)">—</span>')+'</td>';
       }
-      html+='<td style="'+TD+'font-weight:500;border-left:0.5px solid var(--border);padding-right:6px;color:'+labelColor+'">'+(catYear>0?fmtC(catYear):'—')+'</td>';
+      html+='<td style="'+TD+'font-weight:500;border-left:0.5px solid var(--border);padding-right:6px;color:'+labelColor+'">'+(catY>0?fmtC(catY):'—')+'</td>';
       html+='<td style="padding:4px 1rem 4px 2px;background:var(--bg2);text-align:center"><canvas id="spark_'+cat.id+'" width="48" height="22" style="display:block;margin:0 auto"></canvas></td>';
       html+='</tr>';
-
-      // Subcategory rows (shown when expanded)
       if(isOpen){
         cat.subs.forEach(function(sub){
-          var subMonths=[];
-          for(var mi=0;mi<12;mi++) subMonths.push(getBudVal(cat.id,sub.id,y,mi));
-          var subYear=subMonths.reduce((a,b)=>a+b,0);
+          var subM=[];for(var mi=0;mi<12;mi++)subM.push(getBudVal(cat.id,sub.id,y,mi));
+          var subY=subM.reduce((a,b)=>a+b,0);
           html+='<tr style="border-bottom:0.5px solid var(--border)">';
-          html+='<td onmousedown="subNameMouseDown(event,\''+cat.id+'\',\''+sub.id+'\')" style="padding:6px 4px 6px 2rem;font-size:11px;color:var(--text2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer;user-select:none" title="Doble clic: renombrar">↳ '+escHtml(sub.name)+'</td>';
+          html+='<td onmousedown="subNameMouseDown(event,\'' +cat.id+ '\',\'' +sub.id+ '\')" style="padding:6px 4px 6px 2.5rem;font-size:11px;color:var(--text2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer;user-select:none" title="Doble clic: renombrar">&#8618; '+escHtml(sub.name)+'</td>';
           html+='<td style="border-right:0.5px solid var(--border)"></td>';
           for(var mi=0;mi<12;mi++){
-            var v=subMonths[mi];
-            var note=getBudNote(cat.id,sub.id,y,mi);
-            var isCur=y===now.getFullYear()&&mi===now.getMonth();
-            var singleClick='cellSingleClick(\''+cat.id+'\',\''+sub.id+'\','+y+','+mi+',\''+escJs(sub.name)+'\',\''+MONTHS_ES[mi]+'\')';
-            var dblClick=v>0?'cellDoubleClick(\''+cat.id+'\',\''+sub.id+'\','+y+','+mi+')" title="Clic: editar · Doble clic: copiar al resto del año':'';
-            var tooltipEvts=v>0?'onmouseover="showTooltip(event,\''+cat.id+'\',\''+sub.id+'\','+y+','+mi+')" onmousemove="moveTooltip(event)" onmouseout="hideTooltip()"':'';
-            var noteIndicator=note?'<span style="position:absolute;top:2px;right:2px;width:5px;height:5px;border-radius:50%;background:#378ADD;display:inline-block"></span>':'';
-            html+='<td onclick="'+singleClick+'" '
-              +(v>0?'ondblclick="'+dblClick+'"':'')+' '
-              +tooltipEvts+' '
-              +'style="'+TD+TDCLICK+'background:'+(isCur?'rgba(0,0,0,.03):':'')+';position:relative" '
-              +'onmouseover="this.style.background=\'var(--bg2)\';'+(v>0?'showTooltip(event,\''+cat.id+'\',\''+sub.id+'\','+y+','+mi+'\')':'')+'" '
-              +'onmousemove="moveTooltip(event)" '
-              +'onmouseout="this.style.background=\''+(isCur?'rgba(0,0,0,.03)':'')+'\';hideTooltip()">'
-              +(v>0?fmtC(v)+noteIndicator:'<span style="color:var(--text3);font-size:11px">+</span>')+'</td>';
+            var v=subM[mi];var note=getBudNote(cat.id,sub.id,y,mi);var isCur=y===now.getFullYear()&&mi===now.getMonth();
+            var sc='cellSingleClick(\'' +cat.id+ '\',\'' +sub.id+ '\',' +y+ ',' +mi+ ',\'' +escJs(sub.name)+ '\',\'' +MONTHS_ES[mi]+ '\')';
+            var dc=v>0?('cellDoubleClick(\'' +cat.id+ '\',\'' +sub.id+ '\',' +y+ ',' +mi+ ')" title="Clic: editar'):'';
+            var ni=note?'<span style="position:absolute;top:2px;right:2px;width:5px;height:5px;border-radius:50%;background:#378ADD;display:inline-block"></span>':'';
+            html+='<td onclick="'+sc+'" '+(v>0?('ondblclick="'+dc+'"'):'')+' style="'+TD+TDCLICK+'background:'+(isCur?'rgba(0,0,0,.03);':'')+';position:relative">'
+              +(v>0?fmtC(v)+ni:'<span style="color:var(--text3);font-size:11px">+</span>')+'</td>';
           }
-          html+='<td style="'+TD+'border-left:0.5px solid var(--border);padding-right:6px;color:var(--text2)">'+(subYear>0?fmtC(subYear):'—')+'</td>';
-          html+='<td></td>';
-          html+='</tr>';
+          html+='<td style="'+TD+'border-left:0.5px solid var(--border);padding-right:6px;color:var(--text2)">'+(subY>0?fmtC(subY):'—')+'</td>';
+          html+='<td></td></tr>';
         });
-        // Add subcategory row
-        html+='<tr style="border-bottom:0.5px solid var(--border)">';
-        html+='<td style="padding:5px 4px 5px 2rem">';
-        html+='<button onclick="addSubCatInline(\''+cat.id+'\')" style="background:none;border:0.5px solid var(--border2);border-radius:4px;padding:2px 10px;font-size:11px;color:var(--text2);cursor:pointer;font-family:inherit;transition:all .15s" onmouseover="this.style.background=\'var(--bg2)\'" onmouseout="this.style.background=\'\'">+ subcategoría</button>';
-        html+='</td>';
-        for(var mi2=0;mi2<13;mi2++) html+='<td></td>';
+        html+='<tr style="border-bottom:0.5px solid var(--border)"><td style="padding:5px 4px 5px 2.5rem">'
+          +'<button onclick="addSubCatInline(\'' +cat.id+ '\')" style="background:none;border:0.5px solid var(--border2);border-radius:4px;padding:2px 10px;font-size:11px;color:var(--text2);cursor:pointer;font-family:inherit">+ subcategor\xeda</button>'
+          +'</td>';
+        for(var mi2=0;mi2<13;mi2++)html+='<td></td>';
         html+='<td></td></tr>';
-      } // end isOpen
-    }); // end cats.forEach
-  }); // end sections
+      }
+    });
+  }
 
-  // ── Summary rows ───────────────────────────────────────────────────────
-  var SR='padding:8px 3px;font-size:11px;font-weight:500;text-align:right;white-space:nowrap;';
-  var incMonths=yearTypeTotals('income',y);
-  var expMonths=yearTypeTotals('expense',y);
-  var savMonths=incMonths.map((v,i)=>v-expMonths[i]);
-  var yearInc=incMonths.reduce((a,b)=>a+b,0);
-  var yearExp=expMonths.reduce((a,b)=>a+b,0);
-  var yearSav=yearInc-yearExp;
-
-  // Spacer before totals
-  html+='<tr><td colspan="16" style="padding:6px 0;background:var(--bg3)"></td></tr>';
-
-  // Total gastos
-  html+='<tr style="border-top:0.5px solid var(--border2)">';
-  html+='<td style="padding:8px 4px 8px 1rem;font-size:11px;font-weight:500;color:#D85A30">Total gastos</td>';
+  // ── Fila Gastos (desplegable) ────────────────────────────────────────────
+  var expOpen=!!budSummaryExp['expense'];
+  html+='<tr onclick="toggleBudSummary(\'expense\')" style="cursor:pointer;border-bottom:0.5px solid var(--border2)">';
+  html+='<td style="padding:9px 4px 9px 0.75rem;font-size:12px;font-weight:500;color:#D85A30">'
+    +'<span style="font-size:9px;color:var(--text3);margin-right:5px">'+(expOpen?'▼':'▶')+'</span>Gastos</td>';
   html+='<td style="border-right:0.5px solid var(--border)"></td>';
-  for(var mi=0;mi<12;mi++){var v=expMonths[mi];var isCur=y===now.getFullYear()&&mi===now.getMonth();html+='<td style="'+SR+'background:'+(isCur?'rgba(0,0,0,.03):':'')+';color:#D85A30">'+(v>0?fmtC(v):'—')+'</td>';}
-  html+='<td style="'+SR+'border-left:0.5px solid var(--border);padding-right:6px;color:#D85A30">'+(yearExp>0?fmtC(yearExp):'—')+'</td>';
+  for(var mi=0;mi<12;mi++){var v=expM[mi];var isCur=y===now.getFullYear()&&mi===now.getMonth();html+='<td style="'+SR+(isCur?'background:rgba(0,0,0,.03);':'')+'color:#D85A30">'+(v>0?fmtC(v):'—')+'</td>';}
+  html+='<td style="'+SR+'border-left:0.5px solid var(--border);padding-right:6px;color:#D85A30">'+(yExp>0?fmtC(yExp):'—')+'</td>';
   html+='<td style="padding:4px 1rem 4px 2px;text-align:center"><canvas id="spark__exp" width="48" height="22" style="display:block;margin:0 auto"></canvas></td>';
   html+='</tr>';
+  if(expOpen) renderCatRows('expense','#D85A30');
 
-  // Total ingresos
-  html+='<tr style="border-top:0.5px solid var(--border)">';
-  html+='<td style="padding:8px 4px 8px 1rem;font-size:11px;font-weight:500;color:#1D9E75">Total ingresos</td>';
+  // ── Fila Ingresos (desplegable) ──────────────────────────────────────────
+  var incOpen=!!budSummaryExp['income'];
+  html+='<tr onclick="toggleBudSummary(\'income\')" style="cursor:pointer;border-bottom:0.5px solid var(--border)">';
+  html+='<td style="padding:9px 4px 9px 0.75rem;font-size:12px;font-weight:500;color:#1D9E75">'
+    +'<span style="font-size:9px;color:var(--text3);margin-right:5px">'+(incOpen?'▼':'▶')+'</span>Ingresos</td>';
   html+='<td style="border-right:0.5px solid var(--border)"></td>';
-  for(var mi=0;mi<12;mi++){var v=incMonths[mi];var isCur=y===now.getFullYear()&&mi===now.getMonth();html+='<td style="'+SR+'background:'+(isCur?'rgba(0,0,0,.03):':'')+';color:#1D9E75">'+(v>0?fmtC(v):'—')+'</td>';}
-  html+='<td style="'+SR+'border-left:0.5px solid var(--border);padding-right:6px;color:#1D9E75">'+(yearInc>0?fmtC(yearInc):'—')+'</td>';
+  for(var mi=0;mi<12;mi++){var v=incM[mi];var isCur=y===now.getFullYear()&&mi===now.getMonth();html+='<td style="'+SR+(isCur?'background:rgba(0,0,0,.03);':'')+'color:#1D9E75">'+(v>0?fmtC(v):'—')+'</td>';}
+  html+='<td style="'+SR+'border-left:0.5px solid var(--border);padding-right:6px;color:#1D9E75">'+(yInc>0?fmtC(yInc):'—')+'</td>';
   html+='<td style="padding:4px 1rem 4px 2px;text-align:center"><canvas id="spark__inc" width="48" height="22" style="display:block;margin:0 auto"></canvas></td>';
   html+='</tr>';
+  if(incOpen) renderCatRows('income','#1D9E75');
 
-  // Ahorro
+  // ── Separador ─────────────────────────────────────────────────────────────
+  html+='<tr><td colspan="16" style="padding:3px 0;background:var(--bg3)"></td></tr>';
+
+  // ── Ahorro ────────────────────────────────────────────────────────────────
   html+='<tr style="border-top:0.5px solid var(--border);background:var(--bg2)">';
-  html+='<td style="padding:8px 4px 8px 1rem;font-size:12px;font-weight:500">Ahorro</td>';
+  html+='<td style="padding:9px 4px 9px 0.75rem;font-size:12px;font-weight:500">Ahorro</td>';
   html+='<td style="border-right:0.5px solid var(--border)"></td>';
-  for(var mi=0;mi<12;mi++){var v=savMonths[mi];var isCur=y===now.getFullYear()&&mi===now.getMonth();var sc=v>=0?'#1D9E75':'#D85A30';html+='<td style="'+SR+'background:var(--bg2);color:'+sc+'">'+(incMonths[mi]>0||expMonths[mi]>0?(v>=0?'+':'')+fmtC(Math.abs(v)):'—')+'</td>';}
-  var sc2=yearSav>=0?'#1D9E75':'#D85A30';
-  html+='<td style="'+SR+'border-left:0.5px solid var(--border);padding-right:6px;color:'+sc2+'">'+(yearInc>0||yearExp>0?(yearSav>=0?'+':'')+fmtC(Math.abs(yearSav)):'—')+'</td>';
+  for(var mi=0;mi<12;mi++){var v=savM[mi];var isCur=y===now.getFullYear()&&mi===now.getMonth();var sc=v>=0?'#1D9E75':'#D85A30';html+='<td style="'+SR+'background:var(--bg2);color:'+sc+'">'+(incM[mi]>0||expM[mi]>0?(v>=0?'+':'')+fmtC(Math.abs(v)):'—')+'</td>';}
+  var sc2=ySav>=0?'#1D9E75':'#D85A30';
+  html+='<td style="'+SR+'border-left:0.5px solid var(--border);padding-right:6px;color:'+sc2+'">'+(yInc>0||yExp>0?(ySav>=0?'+':'')+fmtC(Math.abs(ySav)):'—')+'</td>';
   html+='<td style="padding:4px 1rem 4px 2px;background:var(--bg2);text-align:center"><canvas id="spark__sav" width="48" height="22" style="display:block;margin:0 auto"></canvas></td>';
   html+='</tr>';
 
-  // Ahorro %
+  // ── Tasa de ahorro ────────────────────────────────────────────────────────
   html+='<tr style="border-top:0.5px solid var(--border);background:var(--bg2)">';
-  html+='<td style="padding:6px 4px 6px 1rem;font-size:11px;color:var(--text2)">Tasa de ahorro</td>';
+  html+='<td style="padding:7px 4px 7px 0.75rem;font-size:11px;color:var(--text2)">Tasa de ahorro</td>';
   html+='<td style="border-right:0.5px solid var(--border)"></td>';
   for(var mi=0;mi<12;mi++){
-    var inc=incMonths[mi],sav=savMonths[mi];
-    var pct=inc>0?Math.round(sav/inc*100):null;
+    var inc2=incM[mi],sav2=savM[mi];
+    var pct=inc2>0?Math.round(sav2/inc2*100):null;
     var isCur=y===now.getFullYear()&&mi===now.getMonth();
     var sc=pct>=0?'#1D9E75':'#D85A30';
     html+='<td style="'+SR+'background:var(--bg2);color:'+(pct!==null?sc:'var(--text3)')+';font-size:11px">'+(pct!==null?pct+'%':'—')+'</td>';
   }
-  var yearPct=yearInc>0?Math.round(yearSav/yearInc*100):null;
-  var sc3=yearPct>=0?'#1D9E75':'#D85A30';
-  html+='<td style="'+SR+'border-left:0.5px solid var(--border);padding-right:6px;color:'+(yearPct!==null?sc3:'var(--text3)')+'">'+(yearPct!==null?yearPct+'%':'—')+'</td>';
-  html+='<td></td>';
-  html+='</tr>';
+  var yPct=yInc>0?Math.round(ySav/yInc*100):null;
+  var sc3=yPct>=0?'#1D9E75':'#D85A30';
+  html+='<td style="'+SR+'border-left:0.5px solid var(--border);padding-right:6px;color:'+(yPct!==null?sc3:'var(--text3)')+'">'+(yPct!==null?yPct+'%':'—')+'</td>';
+  html+='<td></td></tr>';
 
   html+='</tbody></table>';
   document.getElementById('bud-annual-table').innerHTML=html;
