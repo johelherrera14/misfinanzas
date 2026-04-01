@@ -420,9 +420,13 @@
     <div id="cred-list"></div>
 
     <!-- Añadir crédito -->
-    <div class="card">
-      <div class="card-title">Vincular nuevo crédito</div>
-      <p style="font-size:13px;color:var(--text2);margin-bottom:1rem">Selecciona una subcategoría de tu presupuesto que corresponda a un crédito.</p>
+    <div class="card" style="padding:0;overflow:hidden">
+      <div onclick="credToggleForm()" style="display:flex;align-items:center;justify-content:space-between;padding:1rem 1.25rem;cursor:pointer;user-select:none" onmouseover="this.style.background='var(--bg2)'" onmouseout="this.style.background=''">
+        <span style="font-size:12px;font-weight:500;color:var(--text2);text-transform:uppercase;letter-spacing:.05em">+ Vincular nuevo crédito</span>
+        <span id="cred-form-chevron" style="font-size:11px;color:var(--text3);transition:transform .2s">&#9654;</span>
+      </div>
+      <div id="cred-form-body" style="display:none;padding:0 1.25rem 1.25rem;border-top:0.5px solid var(--border)">
+      <p style="font-size:13px;color:var(--text2);margin:1rem 0">Selecciona una subcategoría de tu presupuesto que corresponda a un crédito.</p>
 
       <!-- Subcategoría + nombre -->
       <div class="form-row">
@@ -474,6 +478,7 @@
         </div>
       </div>
       <button class="btn-primary" onclick="addCredito()" style="margin-top:1rem">Añadir crédito</button>
+      </div><!-- /cred-form-body -->
     </div>
   </div>
 
@@ -2792,6 +2797,14 @@ function saveCreditos(){ save('fin_creditos', creditos); }
 // Gestión de participantes en el formulario de nuevo crédito
 var credFormParticipantes = [];
 var credFormMode = 'completo';
+var credFormOpen = false;
+function credToggleForm(){
+  credFormOpen = !credFormOpen;
+  var body = document.getElementById('cred-form-body');
+  var chev = document.getElementById('cred-form-chevron');
+  if(body) body.style.display = credFormOpen ? '' : 'none';
+  if(chev) chev.style.transform = credFormOpen ? 'rotate(90deg)' : '';
+}
 
 function credSetMode(mode){
   credFormMode = mode;
@@ -2884,6 +2897,8 @@ function addCredito(){
   document.getElementById('cred-cuotas-pagadas-inp') && (document.getElementById('cred-cuotas-pagadas-inp').value = '');
   credFormParticipantes = [];
   credRenderParticipantes();
+  // Colapsar formulario
+  credFormOpen = true; credToggleForm();
   creditosRender();
 }
 
