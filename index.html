@@ -403,11 +403,11 @@
     <!-- Métricas resumen -->
     <div class="metrics" style="grid-template-columns:repeat(3,1fr);margin-bottom:1.5rem">
       <div class="metric">
-        <div class="metric-label">Deuda total pendiente</div>
+        <div class="metric-label">Tu deuda pendiente</div>
         <div class="metric-value expense" id="cred-s-deuda" style="font-size:20px">—</div>
       </div>
       <div class="metric">
-        <div class="metric-label">Cuotas mensuales</div>
+        <div class="metric-label">Tu cuota mensual total</div>
         <div class="metric-value" id="cred-s-cuotas" style="font-size:20px">—</div>
       </div>
       <div class="metric">
@@ -437,7 +437,18 @@
         <input type="number" id="cred-tin-inp" placeholder="TIN % (opcional)" min="0" step="0.01">
         <input type="text" id="cred-nombre-inp" placeholder="Nombre personalizado (opcional)">
       </div>
-      <button class="btn-primary" onclick="addCredito()">Añadir crédito</button>
+      <div class="form-row" style="margin-bottom:0">
+        <div>
+          <div class="field-label" style="margin-bottom:4px">Participantes (opcional)</div>
+          <div id="cred-participantes-wrap" style="display:flex;flex-direction:column;gap:6px"></div>
+          <button type="button" onclick="credAddParticipante()" class="btn-sm" style="margin-top:6px;font-size:12px">+ Añadir participante</button>
+        </div>
+        <div style="display:flex;flex-direction:column;justify-content:flex-end">
+          <div class="field-label" style="margin-bottom:4px">Mi porcentaje total</div>
+          <div id="cred-mi-pct-preview" style="font-size:22px;font-weight:500;color:var(--green)">100%</div>
+        </div>
+      </div>
+      <button class="btn-primary" onclick="addCredito()" style="margin-top:1rem">Añadir crédito</button>
     </div>
   </div>
 
@@ -2706,6 +2717,41 @@ var creditos = load('fin_creditos', []);
 
 function saveCreditos(){ save('fin_creditos', creditos); }
 
+// Gestión de participantes en el formulario de nuevo crédito
+var credFormParticipantes = [];
+
+function credAddParticipante(){
+  credFormParticipantes.push({nombre:'', pct:0});
+  credRenderParticipantes();
+}
+function credRemoveParticipante(i){
+  credFormParticipantes.splice(i,1);
+  credRenderParticipantes();
+}
+function credUpdateParticipante(i, field, val){
+  credFormParticipantes[i][field] = field==='pct' ? (parseFloat(val)||0) : val;
+  credRenderParticipantes();
+}
+function credRenderParticipantes(){
+  var wrap = document.getElementById('cred-participantes-wrap');
+  if(!wrap) return;
+  wrap.innerHTML = '';
+  credFormParticipantes.forEach(function(p, i){
+    var row = document.createElement('div');
+    row.style.cssText = 'display:flex;gap:6px;align-items:center';
+    row.innerHTML =
+      '<input type="text" value="'+p.nombre+'" placeholder="Nombre (ej: Esposa)" oninput="credUpdateParticipante('+i+',\'nombre\',this.value)" style="flex:1;font-size:13px">'+
+      '<input type="number" value="'+(p.pct||'')+'" placeholder="%" min="0" max="100" step="1" oninput="credUpdateParticipante('+i+',\'pct\',this.value)" style="width:70px;font-size:13px">'+
+      '<button onclick="credRemoveParticipante('+i+')" style="background:none;border:none;cursor:pointer;color:var(--text3);font-size:16px;line-height:1;padding:2px 4px">×</button>';
+    wrap.appendChild(row);
+  });
+  // Calcular mi % = 100 - suma de otros
+  var totalOtros = credFormParticipantes.reduce(function(s,p){return s+p.pct;},0);
+  var miPct = Math.max(0, 100 - totalOtros);
+  var el = document.getElementById('cred-mi-pct-preview');
+  if(el){ el.textContent = miPct+'%'; el.style.color = miPct < 100 ? 'var(--blue)' : 'var(--green)'; }
+}
+
 function addCredito(){
   var sel = document.getElementById('cred-sub-sel').value;
   if(!sel){ alert('Selecciona una subcategoría del presupuesto.'); return; }
@@ -2721,7 +2767,10 @@ function addCredito(){
   if(creditos.find(function(c){ return c.subId===subId && c.catId===catId; })){
     alert('Esta subcategoría ya está vinculada como crédito.'); return;
   }
-  creditos.push({ id: Date.now(), subId, catId, nombre, deudaOrig, deudaPend, cuotasRest, tin });
+  var totalOtrosPct = credFormParticipantes.reduce(function(s,p){return s+p.pct;},0);
+  var miPct = Math.max(0, 100 - totalOtrosPct);
+  var participantes = credFormParticipantes.filter(function(p){return p.nombre && p.pct>0;});
+  creditos.push({ id: Date.now(), subId, catId, nombre, deudaOrig, deudaPend, cuotasRest, tin, miPct, participantes });
   saveCreditos();
   // Reset form
   document.getElementById('cred-sub-sel').value = '';
@@ -2730,6 +2779,8 @@ function addCredito(){
   document.getElementById('cred-cuotas-inp').value = '';
   document.getElementById('cred-tin-inp').value = '';
   document.getElementById('cred-nombre-inp').value = '';
+  credFormParticipantes = [];
+  credRenderParticipantes();
   creditosRender();
 }
 
@@ -2743,10 +2794,23 @@ function deleteCredito(id){
 function updateCredito(id, field, val){
   var c = creditos.find(function(c){ return c.id === id; });
   if(!c) return;
-  c[field] = field === 'nombre' ? val : (parseFloat(val) || 0);
-  if(field === 'cuotasRest') c[field] = parseInt(val) || 0;
+  if(field === 'nombre') c[field] = val;
+  else if(field === 'cuotasRest') c[field] = parseInt(val) || 0;
+  else c[field] = parseFloat(val) || 0;
+  // Recalcular miPct si se edita un participante
+  if(field === 'miPct') c.miPct = Math.min(100, Math.max(0, parseFloat(val)||100));
   saveCreditos();
-  creditosRender();
+  creditosUpdateSummary();
+}
+
+function creditoGetMiPct(c){
+  return (c.miPct !== undefined && c.miPct !== null) ? c.miPct : 100;
+}
+function creditoGetMiCuota(c){
+  return Math.round(creditoGetCuota(c) * creditoGetMiPct(c) / 100 * 100) / 100;
+}
+function creditoGetMiDeuda(c){
+  return Math.round(c.deudaPend * creditoGetMiPct(c) / 100 * 100) / 100;
 }
 
 function creditoGetCuota(c){
@@ -2818,6 +2882,9 @@ function creditosRender(){
       fechaFin = d.toLocaleDateString('es-ES', {month:'short', year:'numeric'});
     }
 
+    var miPct = creditoGetMiPct(c);
+    var miDeuda = creditoGetMiDeuda(c);
+    var miCuota = creditoGetMiCuota(c);
     var barColor = pct >= 75 ? 'var(--green)' : pct >= 40 ? 'var(--blue)' : 'var(--amber)';
 
     var card = document.createElement('div');
@@ -2883,8 +2950,8 @@ function creditosRender(){
 function creditosUpdateSummary(){
   var totalDeuda = 0, totalCuotas = 0, maxCuotas = 0;
   creditos.forEach(function(c){
-    totalDeuda += c.deudaPend;
-    totalCuotas += creditoGetCuota(c);
+    totalDeuda += creditoGetMiDeuda(c);
+    totalCuotas += creditoGetMiCuota(c);
     if(c.cuotasRest > maxCuotas) maxCuotas = c.cuotasRest;
   });
   var deudaEl = document.getElementById('cred-s-deuda');
