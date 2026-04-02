@@ -118,8 +118,8 @@
       <button class="nav-btn" onclick="showTab('presupuesto',this)">Presupuesto</button>
       <button class="nav-btn" onclick="showTab('pagos',this)">Pagos</button>
       <button class="nav-btn" onclick="showTab('transacciones',this)">Transacciones</button>
-      <button class="nav-btn" onclick="showTab('metas',this)">Metas</button>
       <button class="nav-btn" onclick="showTab('creditos',this)">Créditos</button>
+      <button class="nav-btn" onclick="showTab('metas',this)">Metas</button>
       <button class="nav-btn" onclick="showTab('categorias',this)">Categorías</button>
       <button class="nav-btn" onclick="showTab('config',this)">Configuración</button>
     </nav>
@@ -524,19 +524,46 @@
       </div>
       <p style="font-size:11px;color:var(--text3);margin-top:10px">Los datos se guardan como <code>misfinanzas_datos.json</code> en tu Drive.</p>
     </div>
-    <div class="card">
-      <div class="card-title">Moneda</div>
-      <p style="font-size:13px;color:var(--text2);margin-bottom:1rem">Selecciona la moneda que se usará en toda la aplicación.</p>
-      <div id="currency-list" style="display:flex;flex-direction:column;gap:8px"></div>
+    <div class="card" style="padding:0;overflow:hidden">
+      <!-- Cabecera desplegable -->
+      <div onclick="currencyToggle()" style="display:flex;align-items:center;justify-content:space-between;padding:1rem 1.25rem;cursor:pointer;user-select:none" onmouseover="this.style.background='var(--bg2)'" onmouseout="this.style.background=''">
+        <div style="display:flex;align-items:center;gap:10px">
+          <span style="font-size:12px;font-weight:500;color:var(--text2);text-transform:uppercase;letter-spacing:.05em">Moneda</span>
+          <span id="currency-active-label" style="font-size:13px;color:var(--text);font-weight:500"></span>
+        </div>
+        <span id="currency-chevron" style="font-size:11px;color:var(--text3);transition:transform .2s">&#9654;</span>
+      </div>
+      <!-- Cuerpo desplegable -->
+      <div id="currency-body" style="display:none;border-top:0.5px solid var(--border);padding:1rem 1.25rem">
+        <p style="font-size:13px;color:var(--text2);margin-bottom:1rem">Selecciona la moneda que se usará en toda la aplicación.</p>
+        <div id="currency-list" style="display:flex;flex-direction:column;gap:6px;margin-bottom:1rem"></div>
+        <!-- Moneda personalizada inline -->
+        <div id="currency-custom-row" style="border-top:0.5px solid var(--border);padding-top:1rem">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+            <span style="font-size:12px;font-weight:500;color:var(--text2);text-transform:uppercase;letter-spacing:.05em">Moneda personalizada</span>
+            <button onclick="currencyToggleCustom()" class="btn-sm" id="currency-custom-btn" style="font-size:12px">+ Añadir</button>
+          </div>
+          <div id="currency-custom-form" style="display:none">
+            <div class="form-row">
+              <input type="text" id="custom-symbol" placeholder="Símbolo (ej: Bs, ₺, CHF)" maxlength="6">
+              <input type="text" id="custom-name" placeholder="Nombre (ej: Bolívar, Lira)">
+            </div>
+            <button class="btn-primary" onclick="setCustomCurrency()" style="margin-top:0">Usar esta moneda</button>
+          </div>
+        </div>
+      </div>
     </div>
     <div class="card">
-      <div class="card-title">Moneda personalizada</div>
-      <p style="font-size:13px;color:var(--text2);margin-bottom:1rem">Si tu moneda no aparece en la lista, puedes definirla manualmente.</p>
-      <div class="form-row">
-        <input type="text" id="custom-symbol" placeholder="Símbolo (ej: Bs, ₺, CHF)" maxlength="6">
-        <input type="text" id="custom-name" placeholder="Nombre (ej: Bolívar, Lira)">
+      <div class="card-title">Plantillas de presupuesto</div>
+      <p style="font-size:13px;color:var(--text2);margin-bottom:1rem">Exporta o importa la estructura de categorías, presupuesto y créditos. No incluye transacciones ni datos personales.</p>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:1rem">
+        <button class="btn-primary" onclick="plantillaExportar()" style="width:auto;padding:9px 20px;margin-top:0;background:#1D9E75">↓ Exportar plantilla</button>
+        <label style="cursor:pointer">
+          <input type="file" id="plantilla-file-inp" accept=".json" style="display:none" onchange="plantillaImportarFile(this)">
+          <span class="btn-primary" onclick="document.getElementById('plantilla-file-inp').click()" style="display:inline-block;width:auto;padding:9px 20px;margin-top:0;background:#378ADD;cursor:pointer">↑ Importar plantilla</span>
+        </label>
       </div>
-      <button class="btn-primary" onclick="setCustomCurrency()">Usar esta moneda</button>
+      <div id="plantilla-status" style="font-size:13px;color:var(--text2)"></div>
     </div>
     <div class="card">
       <div class="card-title">Información</div>
@@ -2045,6 +2072,22 @@ function addCat(){
   renderCats();
 }
 
+function currencyToggle(){
+  var body = document.getElementById('currency-body');
+  var chev = document.getElementById('currency-chevron');
+  var open = body.style.display !== 'none';
+  body.style.display = open ? 'none' : '';
+  if(chev) chev.style.transform = open ? '' : 'rotate(90deg)';
+}
+
+function currencyToggleCustom(){
+  var form = document.getElementById('currency-custom-form');
+  var btn  = document.getElementById('currency-custom-btn');
+  var open = form.style.display !== 'none';
+  form.style.display = open ? 'none' : '';
+  if(btn) btn.textContent = open ? '+ Añadir' : '− Cancelar';
+}
+
 function renderConfig(){
   // Currency list
   var el=document.getElementById('currency-list');
@@ -2069,6 +2112,11 @@ function setCurrency(code){
   save('fin_currency',currencyConfig);
   renderConfig();
   refreshAllAmounts();
+  // Cerrar desplegable tras selección
+  var body=document.getElementById('currency-body');
+  var chev=document.getElementById('currency-chevron');
+  if(body){body.style.display='none';}
+  if(chev){chev.style.transform='';}
 }
 
 function setCustomCurrency(){
@@ -2081,6 +2129,15 @@ function setCustomCurrency(){
   document.getElementById('custom-name').value='';
   renderConfig();
   refreshAllAmounts();
+  // Cerrar form y desplegable
+  var cf=document.getElementById('currency-custom-form');
+  var cb=document.getElementById('currency-custom-btn');
+  if(cf) cf.style.display='none';
+  if(cb) cb.textContent='+ Añadir';
+  var body=document.getElementById('currency-body');
+  var chev=document.getElementById('currency-chevron');
+  if(body){body.style.display='none';}
+  if(chev){chev.style.transform='';}
 }
 
 function refreshAllAmounts(){
@@ -2797,6 +2854,8 @@ function saveCreditos(){ save('fin_creditos', creditos); }
 // Gestión de participantes en el formulario de nuevo crédito
 var credFormParticipantes = [];
 var credFormMode = 'completo';
+var credExpandido = {};
+function credToggleCard(id){ credExpandido[id]=!credExpandido[id]; creditosRender(); }
 var credFormOpen = false;
 function credToggleForm(){
   credFormOpen = !credFormOpen;
@@ -2972,96 +3031,137 @@ function creditosRender(){
   if(!list) return;
 
   if(!creditos.length){
-    list.innerHTML = '<div class="notice" style="margin-bottom:1rem">No tienes créditos vinculados todavía. Usa el formulario de abajo para añadir uno.</div>';
+    list.innerHTML = '<div class="notice" style="margin-bottom:1rem">No tienes créditos vinculados todavía. Abre el formulario de abajo para añadir uno.</div>';
     creditosUpdateSummary();
     return;
   }
 
   list.innerHTML = '';
   creditos.forEach(function(c){
-    var cuota = creditoGetCuota(c);
-    var label = creditoGetLabel(c);
-    var color = creditoGetColor(c);
-    var pct = c.deudaOrig > 0 ? Math.min(100, Math.round((c.deudaOrig - c.deudaPend) / c.deudaOrig * 100)) : 0;
-    var amortizado = c.deudaOrig - c.deudaPend;
-
-    // Cálculo de intereses si hay TIN
+    var cuota    = creditoGetCuota(c);
+    var label    = creditoGetLabel(c);
+    var color    = creditoGetColor(c);
+    var miPct    = creditoGetMiPct(c);
+    var miDeuda  = creditoGetMiDeuda(c);
+    var miCuota  = creditoGetMiCuota(c);
+    var pct      = c.deudaOrig > 0 ? Math.min(100, Math.round((c.deudaOrig - c.deudaPend) / c.deudaOrig * 100)) : 0;
+    var amortizado = Math.max(0, c.deudaOrig - c.deudaPend);
+    var barColor = pct >= 75 ? 'var(--green)' : pct >= 40 ? 'var(--blue)' : 'var(--amber)';
+    var fechaFin = '';
+    if(c.cuotasRest > 0){
+      var df = new Date(); df.setMonth(df.getMonth() + c.cuotasRest);
+      fechaFin = df.toLocaleDateString('es-ES', {month:'short', year:'numeric'});
+    }
     var interesMes = 0, capitalMes = 0;
     if(c.tin > 0 && cuota > 0 && c.deudaPend > 0){
       interesMes = Math.round(c.deudaPend * (c.tin/100/12) * 100) / 100;
       capitalMes = Math.round((cuota - interesMes) * 100) / 100;
     }
-
-    // Fecha estimada fin
-    var fechaFin = '';
-    if(c.cuotasRest > 0){
-      var d = new Date();
-      d.setMonth(d.getMonth() + c.cuotasRest);
-      fechaFin = d.toLocaleDateString('es-ES', {month:'short', year:'numeric'});
-    }
-
-    var miPct = creditoGetMiPct(c);
-    var miDeuda = creditoGetMiDeuda(c);
-    var miCuota = creditoGetMiCuota(c);
-    var barColor = pct >= 75 ? 'var(--green)' : pct >= 40 ? 'var(--blue)' : 'var(--amber)';
+    var isOpen = !!credExpandido[c.id];
 
     var card = document.createElement('div');
     card.className = 'card';
-    card.style.marginBottom = '1rem';
+    card.style.cssText = 'padding:0;overflow:hidden;margin-bottom:10px';
 
-    card.innerHTML =
-      '<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:1rem">' +
-        '<div style="display:flex;align-items:center;gap:10px;min-width:0">' +
-          '<div style="width:10px;height:10px;border-radius:50%;background:'+color+';flex-shrink:0"></div>' +
-          '<span style="font-size:15px;font-weight:500;color:var(--text)">'+label+'</span>' +
-          (fechaFin ? '<span style="font-size:12px;color:var(--text3)">· termina '+fechaFin+'</span>' : '') +
-        '</div>' +
-        '<div style="display:flex;gap:6px">' +
-        '<button onclick="credOpenEdit('+c.id+')" style="background:none;border:0.5px solid var(--border2);border-radius:var(--radius);cursor:pointer;color:var(--text2);font-size:12px;padding:4px 10px;font-family:inherit;transition:all .15s" title="Editar crédito">Editar</button>' +
-        '<button onclick="deleteCredito('+c.id+')" style="background:none;border:none;cursor:pointer;color:var(--text3);font-size:18px;line-height:1;padding:0 4px" title="Eliminar">×</button>' +
-        '</div>' +
+    // ── Línea resumen (siempre visible) ──────────────────────────────────
+    var summary = document.createElement('div');
+    summary.style.cssText = 'display:flex;align-items:center;gap:12px;padding:0.85rem 1.25rem;cursor:pointer;user-select:none';
+    summary.onclick = function(){ credToggleCard(c.id); };
+
+    summary.innerHTML =
+      // Punto color + nombre
+      '<div style="display:flex;align-items:center;gap:8px;min-width:0;flex:1">' +
+        '<div style="width:9px;height:9px;border-radius:50%;background:'+color+';flex-shrink:0"></div>' +
+        '<span style="font-size:14px;font-weight:500;color:var(--text);white-space:nowrap">'+label+'</span>' +
+        (fechaFin ? '<span style="font-size:11px;color:var(--text3);white-space:nowrap">· termina '+fechaFin+'</span>' : '') +
       '</div>' +
+      // Barra progreso compacta
+      '<div style="flex:1;max-width:140px;min-width:80px">' +
+        '<div style="height:5px;background:var(--bg3);border-radius:3px;overflow:hidden">' +
+          '<div style="height:100%;border-radius:3px;background:'+barColor+';width:'+pct+'%"></div>' +
+        '</div>' +
+        '<div style="font-size:10px;color:var(--text3);margin-top:2px;text-align:right">'+pct+'% amortizado</div>' +
+      '</div>' +
+      // Mi deuda pendiente
+      '<div style="text-align:right;flex-shrink:0">' +
+        '<div style="font-size:13px;font-weight:500;color:var(--red)">'+fmt(miDeuda)+'</div>' +
+        '<div style="font-size:10px;color:var(--text3)">pendiente'+(miPct<100?' (tu parte)':'')+'</div>' +
+      '</div>' +
+      // Mi cuota
+      '<div style="text-align:right;flex-shrink:0">' +
+        '<div style="font-size:13px;font-weight:500;color:var(--text)">'+fmt(miCuota)+'</div>' +
+        '<div style="font-size:10px;color:var(--text3)">cuota/mes</div>' +
+      '</div>' +
+      // Botones editar/eliminar
+      '<div style="display:flex;gap:6px;flex-shrink:0">' +
+        '<button onclick="event.stopPropagation();credOpenEdit('+c.id+')" style="background:none;border:0.5px solid var(--border2);border-radius:var(--radius);cursor:pointer;color:var(--text2);font-size:12px;padding:4px 10px;font-family:inherit">Editar</button>' +
+        '<button onclick="event.stopPropagation();deleteCredito('+c.id+')" style="background:none;border:none;cursor:pointer;color:var(--text3);font-size:18px;line-height:1;padding:0 4px">×</button>' +
+      '</div>' +
+      // Chevron
+      '<span style="font-size:10px;color:var(--text3);flex-shrink:0;transition:transform .2s;transform:'+(isOpen?'rotate(90deg)':'rotate(0)')+'"  id="cred-chev-'+c.id+'">&#9654;</span>';
 
-      // Métricas
+    card.appendChild(summary);
+
+    // ── Detalle (desplegable) ─────────────────────────────────────────────
+    var detail = document.createElement('div');
+    detail.id = 'cred-detail-' + c.id;
+    detail.style.cssText = 'border-top:0.5px solid var(--border);padding:1rem 1.25rem;display:'+(isOpen?'block':'none');
+
+    // Participantes banner
+    var partHtml = '';
+    if(miPct < 100 && c.participantes && c.participantes.length){
+      partHtml = '<div style="display:flex;align-items:center;gap:8px;padding:7px 12px;background:rgba(55,138,221,.08);border-radius:var(--radius);margin-bottom:12px;font-size:12px">' +
+        '<span style="color:var(--blue);font-weight:500">Tu parte: '+miPct+'%</span>' +
+        '<span style="color:var(--text3)">·</span>' +
+        c.participantes.map(function(p){ return '<span style="color:var(--text2)">'+p.nombre+': '+p.pct+'%</span>'; }).join('<span style="color:var(--text3);margin:0 4px">·</span>') +
+      '</div>';
+    }
+
+    // Grid métricas (texto plano)
+    var metricsHtml =
       '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:1rem">' +
         '<div style="background:var(--bg2);border-radius:var(--radius);padding:10px 12px">' +
           '<div style="font-size:11px;color:var(--text2);margin-bottom:4px">Deuda pendiente</div>' +
-          '<input type="number" value="'+c.deudaPend+'" min="0" step="0.01" onchange="updateCredito('+c.id+',\'deudaPend\',this.value)" style="font-size:15px;font-weight:500;color:var(--red);width:100%;background:none;border:none;padding:0;font-family:inherit">' +
+          '<div style="font-size:15px;font-weight:500;color:var(--red)">'+fmt(miDeuda)+'</div>' +
+          (miPct < 100 ? '<div style="font-size:11px;color:var(--text3);margin-top:2px">Total: '+fmt(c.deudaPend)+'</div>' : '') +
         '</div>' +
         '<div style="background:var(--bg2);border-radius:var(--radius);padding:10px 12px">' +
           '<div style="font-size:11px;color:var(--text2);margin-bottom:4px">Cuota mensual</div>' +
-          '<div style="font-size:15px;font-weight:500;color:var(--text)">'+(cuota > 0 ? fmt(cuota) : '<span style="color:var(--text3);font-size:12px">Sin importe en presupuesto</span>')+'</div>' +
+          '<div style="font-size:15px;font-weight:500;color:var(--text)">'+(cuota>0?fmt(miCuota):'<span style="font-size:12px;color:var(--text3)">—</span>')+'</div>' +
+          (miPct < 100 && cuota > 0 ? '<div style="font-size:11px;color:var(--text3);margin-top:2px">Total: '+fmt(cuota)+'</div>' : '') +
         '</div>' +
         '<div style="background:var(--bg2);border-radius:var(--radius);padding:10px 12px">' +
           '<div style="font-size:11px;color:var(--text2);margin-bottom:4px">Cuotas restantes</div>' +
-          '<input type="number" value="'+c.cuotasRest+'" min="0" step="1" onchange="updateCredito('+c.id+',\'cuotasRest\',this.value)" style="font-size:15px;font-weight:500;color:var(--text);width:100%;background:none;border:none;padding:0;font-family:inherit">' +
+          '<div style="font-size:15px;font-weight:500;color:var(--text)">'+c.cuotasRest+'</div>' +
         '</div>' +
         '<div style="background:var(--bg2);border-radius:var(--radius);padding:10px 12px">' +
           '<div style="font-size:11px;color:var(--text2);margin-bottom:4px">TIN %</div>' +
-          '<input type="number" value="'+(c.tin||'')+'" min="0" step="0.01" placeholder="—" onchange="updateCredito('+c.id+',\'tin\',this.value)" style="font-size:15px;font-weight:500;color:var(--text);width:100%;background:none;border:none;padding:0;font-family:inherit">' +
+          '<div style="font-size:15px;font-weight:500;color:var(--text)">'+(c.tin>0?c.tin+'%':'—')+'</div>' +
         '</div>' +
-      '</div>' +
+      '</div>';
 
-      // Barra de progreso
+    // Barra progreso grande
+    var barHtml =
       '<div style="margin-bottom:'+(interesMes>0?'0.75rem':'0')+'">' +
         '<div style="display:flex;justify-content:space-between;font-size:12px;color:var(--text2);margin-bottom:5px">' +
-          '<span>Amortizado '+pct+'% · '+fmt(Math.max(0,amortizado))+'</span>' +
+          '<span>Amortizado '+pct+'% · '+fmt(amortizado)+'</span>' +
           '<span>Pendiente '+fmt(c.deudaPend)+'</span>' +
         '</div>' +
         '<div style="height:8px;background:var(--bg3);border-radius:4px;overflow:hidden">' +
           '<div style="height:100%;border-radius:4px;background:'+barColor+';width:'+pct+'%;transition:width .5s"></div>' +
         '</div>' +
-      '</div>' +
+      '</div>';
 
-      // Desglose cuota (si hay TIN)
-      (interesMes > 0 ?
-        '<div style="display:flex;gap:16px;margin-top:0.75rem;padding:10px 12px;background:var(--bg2);border-radius:var(--radius);font-size:12px">' +
-          '<span style="color:var(--text2)">Próxima cuota → </span>' +
-          '<span style="color:var(--red)">Intereses: '+fmt(interesMes)+'</span>' +
-          '<span style="color:var(--green)">Capital: '+fmt(Math.max(0,capitalMes))+'</span>' +
-        '</div>' : '') +
-      '';
+    // Desglose cuota
+    var desgloseHtml = interesMes > 0 ?
+      '<div style="display:flex;gap:16px;margin-top:0.75rem;padding:10px 12px;background:var(--bg2);border-radius:var(--radius);font-size:12px">' +
+        '<span style="color:var(--text2)">Próxima cuota → </span>' +
+        '<span style="color:var(--red)">Intereses: '+fmt(interesMes)+'</span>' +
+        '<span style="color:var(--green)">Capital: '+fmt(Math.max(0,capitalMes))+'</span>' +
+      '</div>' : '';
 
+    detail.innerHTML = partHtml + metricsHtml + barHtml + desgloseHtml;
+    card.appendChild(detail);
     list.appendChild(card);
   });
 
@@ -3167,6 +3267,125 @@ function ceRenderParticipantes(){
   var miPct = Math.max(0, 100 - totalOtros);
   var el = document.getElementById('ce-mi-pct');
   if(el){ el.textContent = miPct+'%'; el.style.color = miPct < 100 ? 'var(--blue)' : 'var(--green)'; }
+}
+
+
+// ── PLANTILLAS ───────────────────────────────────────────────────────────────
+function plantillaExportar(){
+  var plantilla = {
+    version: '1.0',
+    exportDate: new Date().toISOString().split('T')[0],
+    budStruct: budStruct,
+    budValues: budValues,
+    budNotes: budNotes,
+    creditos: creditos
+  };
+  var json = JSON.stringify(plantilla, null, 2);
+  var blob = new Blob([json], {type:'application/json'});
+  var url = URL.createObjectURL(blob);
+  var a = document.createElement('a');
+  a.href = url;
+  a.download = 'misfinanzas_plantilla_' + new Date().toISOString().split('T')[0] + '.json';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  plantillaStatus('Plantilla exportada correctamente.', 'var(--green)');
+}
+
+function plantillaImportarFile(input){
+  var file = input.files[0];
+  if(!file) return;
+  var reader = new FileReader();
+  reader.onload = function(e){
+    try {
+      var data = JSON.parse(e.target.result);
+      if(!data.budStruct){ plantillaStatus('Archivo no válido: falta la estructura de categorías.', 'var(--red)'); return; }
+      plantillaConfirmarImport(data);
+    } catch(err) {
+      plantillaStatus('Error al leer el archivo: ' + err.message, 'var(--red)');
+    }
+    input.value = '';
+  };
+  reader.readAsText(file);
+}
+
+function plantillaConfirmarImport(data){
+  var cats = data.budStruct ? data.budStruct.length : 0;
+  var creds = data.creditos ? data.creditos.length : 0;
+  var meses = data.budValues ? Object.keys(data.budValues).length : 0;
+  var msg = 'Plantilla: '+cats+' categorias, '+meses+' valores, '+creds+' creditos.';
+
+  // Mostrar modal de elección
+  var modal = document.createElement('div');
+  modal.className = 'modal-backdrop';
+  modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:300;display:flex;align-items:center;justify-content:center;padding:1rem';
+  modal.innerHTML =
+    '<div class="modal" style="max-width:400px">' +
+      '<div class="modal-title">Importar plantilla</div>' +
+      '<p style="font-size:13px;color:var(--text2);margin-bottom:1rem">' +
+        cats + ' categorías · ' + meses + ' valores · ' + creds + ' créditos' +
+      '</p>' +
+      '<div style="display:flex;flex-direction:column;gap:8px;margin-bottom:1.25rem">' +
+        '<button onclick="plantillaApply(window._importData,\'replace\');this.closest(\'.modal-backdrop\').remove()" class="btn-primary" style="margin-top:0;background:var(--red)">Reemplazar todo</button>' +
+        '<button onclick="plantillaApply(window._importData,\'merge\');this.closest(\'.modal-backdrop\').remove()" class="btn-primary" style="margin-top:0;background:#378ADD">Fusionar (añadir sin borrar)</button>' +
+        '<button onclick="this.closest(\'.modal-backdrop\').remove()" class="btn-ghost">Cancelar</button>' +
+      '</div>' +
+    '</div>';
+  window._importData = data;
+  document.body.appendChild(modal);
+}
+
+function plantillaApply(data, mode){
+  if(mode === 'replace'){
+    if(data.budStruct) budStruct = data.budStruct;
+    if(data.budValues) budValues = data.budValues;
+    if(data.budNotes)  budNotes  = data.budNotes;
+    if(data.creditos)  creditos  = data.creditos;
+  } else {
+    // Fusionar: añadir categorías que no existan por id
+    if(data.budStruct){
+      data.budStruct.forEach(function(cat){
+        if(!budStruct.find(function(c){ return c.id === cat.id; })){
+          budStruct.push(cat);
+        }
+      });
+    }
+    // Fusionar valores: solo añadir los que no existan
+    if(data.budValues){
+      Object.keys(data.budValues).forEach(function(k){
+        if(!budValues[k]) budValues[k] = data.budValues[k];
+      });
+    }
+    if(data.budNotes){
+      Object.keys(data.budNotes).forEach(function(k){
+        if(!budNotes[k]) budNotes[k] = data.budNotes[k];
+      });
+    }
+    // Fusionar créditos
+    if(data.creditos){
+      data.creditos.forEach(function(c){
+        if(!creditos.find(function(x){ return x.id === c.id; })){
+          creditos.push(c);
+        }
+      });
+    }
+  }
+
+  // Guardar todo
+  saveBudStruct(); saveBudValues(); saveBudNotes(); saveCreditos();
+  plantillaStatus('Plantilla importada correctamente (' + mode + ').', 'var(--green)');
+
+  // Refrescar vistas si están activas
+  if(document.getElementById('tab-presupuesto').classList.contains('active')) renderAnnualView();
+  if(document.getElementById('tab-creditos').classList.contains('active')) creditosRender();
+  renderConfig();
+}
+
+function plantillaStatus(msg, color){
+  var el = document.getElementById('plantilla-status');
+  if(el) el.innerHTML = '<span style="color:'+color+'">'+msg+'</span>';
+  setTimeout(function(){ if(el) el.innerHTML = ''; }, 4000);
 }
 
 // ── INIT ───────────────────────────────────────────────────────────────────
