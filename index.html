@@ -2,7 +2,13 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="nexo.ai">
+<meta name="theme-color" content="#FF6B35">
+<link rel="manifest" href="data:application/json,{%22name%22:%22nexo.ai%20finanzas%22,%22short_name%22:%22nexo.ai%22,%22start_url%22:%22./%22,%22display%22:%22standalone%22,%22background_color%22:%22%23F7F6F3%22,%22theme_color%22:%22%23FF6B35%22,%22icons%22:[{%22src%22:%22data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='22' fill='%23FF6B35'/><text y='.9em' font-size='72' x='50%25' text-anchor='middle' font-family='sans-serif' fill='white' font-weight='bold'>n</text></svg>%22,%22sizes%22:%22any%22,%22type%22:%22image/svg+xml%22}]}">
 <title>nexo.ai · finanzas</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 <script src="https://accounts.google.com/gsi/client" async defer></script>
@@ -403,6 +409,141 @@
     .metrics { grid-template-columns: 1fr; }
     .nav-btn { padding: 5px 10px; font-size: 11.5px; }
   }
+
+  /* ── MOBILE STYLES (≤640px) ── */
+  @media (max-width: 640px) {
+    /* Ocultar nav de escritorio */
+    .nav { display: none; }
+    .theme-toggle { display: none; }
+
+    /* Header compacto */
+    header { padding: 0 1rem; }
+    .header-inner { height: 52px; justify-content: center; }
+
+    /* Padding inferior para el nav */
+    body { padding-bottom: 72px; }
+    .main { padding: 0.75rem; padding-bottom: 0.5rem; }
+
+    /* Hero card móvil */
+    .mobile-hero {
+      display: block !important;
+      background: var(--accent);
+      border-radius: 22px;
+      padding: 20px;
+      margin-bottom: 12px;
+      color: #fff;
+    }
+    .mobile-hero-greeting { font-size: 14px; opacity: .85; margin-bottom: 4px; }
+    .mobile-hero-amount {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 38px; font-weight: 700;
+      letter-spacing: -0.03em; line-height: 1;
+      margin-bottom: 4px;
+    }
+    .mobile-hero-sub { font-size: 12px; opacity: .75; margin-bottom: 14px; }
+    .mobile-hero-pills { display: flex; gap: 8px; flex-wrap: wrap; }
+    .mobile-hero-pill {
+      background: rgba(255,255,255,0.2);
+      border-radius: 100px; padding: 5px 12px;
+      font-size: 11px; font-weight: 500;
+      display: flex; align-items: center; gap: 5px;
+    }
+    .mobile-hero-pill-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+
+    /* Mini metrics en móvil */
+    .mobile-mini-metrics {
+      display: grid !important;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px; margin-bottom: 12px;
+    }
+    .mobile-mini-metric {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 12px 10px;
+    }
+    .mobile-mini-label { font-size: 10px; font-weight: 500; color: var(--text3); text-transform: uppercase; letter-spacing: .06em; margin-bottom: 4px; }
+    .mobile-mini-value { font-family: 'Space Grotesk', sans-serif; font-size: 15px; font-weight: 600; letter-spacing: -0.02em; }
+
+    /* Ocultar métricas desktop en móvil */
+    .metrics { display: none !important; }
+    /* Ocultar hero en desktop */
+    .mobile-hero, .mobile-mini-metrics { display: none; }
+
+    /* Bottom nav */
+    .mobile-nav {
+      display: flex !important;
+      position: fixed; bottom: 0; left: 0; right: 0;
+      background: var(--surface);
+      border-top: 1px solid var(--border);
+      height: 72px;
+      padding: 10px 8px calc(10px + env(safe-area-inset-bottom));
+      z-index: 200;
+      box-shadow: 0 -4px 20px rgba(0,0,0,0.06);
+    }
+    .mobile-nav-item {
+      flex: 1; display: flex; flex-direction: column;
+      align-items: center; gap: 3px;
+      cursor: pointer; padding: 0 4px;
+      background: none; border: none;
+      font-family: 'DM Sans', sans-serif;
+    }
+    .mobile-nav-icon {
+      width: 26px; height: 26px;
+      border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .mobile-nav-label { font-size: 9.5px; font-weight: 500; color: var(--text3); }
+    .mobile-nav-item.active .mobile-nav-label { color: var(--accent); }
+    .mobile-nav-item.active .mobile-nav-icon { background: var(--accent-dim); }
+    .mobile-nav-add .mobile-nav-icon {
+      background: var(--accent) !important;
+      border-radius: 50% !important;
+      width: 38px !important; height: 38px !important;
+      margin-top: -6px;
+    }
+
+    /* Drawer "Más" */
+    .mobile-drawer-backdrop {
+      display: none;
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,0.4);
+      backdrop-filter: blur(4px);
+      z-index: 300;
+    }
+    .mobile-drawer-backdrop.open { display: block; }
+    .mobile-drawer {
+      position: absolute; bottom: 0; left: 0; right: 0;
+      background: var(--surface);
+      border-radius: 24px 24px 0 0;
+      padding: 12px 1.25rem calc(80px + env(safe-area-inset-bottom));
+    }
+    .mobile-drawer-handle {
+      width: 36px; height: 4px; border-radius: 2px;
+      background: var(--border2); margin: 0 auto 16px;
+    }
+    .mobile-drawer-grid {
+      display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px;
+    }
+    .mobile-drawer-item {
+      display: flex; flex-direction: column;
+      align-items: center; gap: 6px;
+      padding: 12px 8px; border-radius: 16px;
+      background: var(--bg2); cursor: pointer; border: none;
+      font-family: 'DM Sans', sans-serif;
+    }
+    .mobile-drawer-icon {
+      width: 36px; height: 36px; border-radius: 12px;
+      background: var(--surface); display: flex;
+      align-items: center; justify-content: center;
+    }
+    .mobile-drawer-label { font-size: 11px; color: var(--text2); font-weight: 500; text-align: center; }
+  }
+
+  /* En desktop, ocultar elementos móviles */
+  @media (min-width: 641px) {
+    .mobile-hero, .mobile-mini-metrics, .mobile-nav, .mobile-drawer-backdrop { display: none !important; }
+  }
 </style>
 </head>
 <body>
@@ -431,6 +572,31 @@
 
   <!-- RESUMEN -->
   <div id="tab-resumen" class="section active">
+    <!-- Hero móvil -->
+    <div class="mobile-hero" id="mobile-hero-card">
+      <div class="mobile-hero-greeting">Hola, <strong>Johel</strong> 👋</div>
+      <div class="mobile-hero-amount" id="mh-balance">0 €</div>
+      <div class="mobile-hero-sub" id="mh-mes">Balance del mes</div>
+      <div class="mobile-hero-pills">
+        <div class="mobile-hero-pill"><div class="mobile-hero-pill-dot" style="background:#C8F135"></div><span id="mh-inc">0 €</span> ingresos</div>
+        <div class="mobile-hero-pill"><div class="mobile-hero-pill-dot" style="background:rgba(255,255,255,0.7)"></div><span id="mh-exp">0 €</span> gastos</div>
+      </div>
+    </div>
+    <!-- Mini métricas móvil -->
+    <div class="mobile-mini-metrics" id="mobile-mini-wrap">
+      <div class="mobile-mini-metric">
+        <div class="mobile-mini-label">Pagos pend.</div>
+        <div class="mobile-mini-value" id="mm-pagos" style="color:var(--accent)">—</div>
+      </div>
+      <div class="mobile-mini-metric">
+        <div class="mobile-mini-label">Ahorro mes</div>
+        <div class="mobile-mini-value" id="mm-ahorro" style="color:var(--green)">—</div>
+      </div>
+      <div class="mobile-mini-metric">
+        <div class="mobile-mini-label">Créditos</div>
+        <div class="mobile-mini-value" id="mm-creditos" style="color:var(--blue)">—</div>
+      </div>
+    </div>
     <div class="metrics">
       <div class="metric"><div class="metric-label">Ingresos este mes</div><div class="metric-value income" id="m-income">0 €</div></div>
       <div class="metric"><div class="metric-label">Gastos este mes</div><div class="metric-value expense" id="m-expense">0 €</div></div>
@@ -942,6 +1108,66 @@
     </div>
   </div>
 
+
+  <!-- MOBILE BOTTOM NAV -->
+  <nav class="mobile-nav" id="mobile-nav" style="display:none">
+    <button class="mobile-nav-item active" id="mnav-resumen" onclick="mobileNav('resumen',this)">
+      <div class="mobile-nav-icon">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+      </div>
+      <span class="mobile-nav-label">Inicio</span>
+    </button>
+    <button class="mobile-nav-item" id="mnav-pagos" onclick="mobileNav('pagos',this)">
+      <div class="mobile-nav-icon">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+      </div>
+      <span class="mobile-nav-label">Pagos</span>
+    </button>
+    <button class="mobile-nav-item mobile-nav-add" onclick="mobileNavAdd()">
+      <div class="mobile-nav-icon">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M12 4v16m-8-8h16" stroke="#fff" stroke-width="2.5" stroke-linecap="round"/></svg>
+      </div>
+      <span class="mobile-nav-label" style="opacity:0">·</span>
+    </button>
+    <button class="mobile-nav-item" id="mnav-presupuesto" onclick="mobileNav('presupuesto',this)">
+      <div class="mobile-nav-icon">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a2 2 0 01-2 2H6a2 2 0 01-2-2V4z" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+      </div>
+      <span class="mobile-nav-label">Presup.</span>
+    </button>
+    <button class="mobile-nav-item" onclick="mobileDrawerOpen()">
+      <div class="mobile-nav-icon">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><circle cx="5" cy="12" r="1.5" fill="currentColor"/><circle cx="12" cy="12" r="1.5" fill="currentColor"/><circle cx="19" cy="12" r="1.5" fill="currentColor"/></svg>
+      </div>
+      <span class="mobile-nav-label">Más</span>
+    </button>
+  </nav>
+
+  <!-- DRAWER MÁS -->
+  <div class="mobile-drawer-backdrop" id="mobile-drawer-backdrop" onclick="mobileDrawerClose()">
+    <div class="mobile-drawer" onclick="event.stopPropagation()">
+      <div class="mobile-drawer-handle"></div>
+      <div class="mobile-drawer-grid">
+        <button class="mobile-drawer-item" onclick="mobileNavDrawer('transacciones')">
+          <div class="mobile-drawer-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01" stroke="var(--accent)" stroke-width="2" stroke-linecap="round"/></svg></div>
+          <span class="mobile-drawer-label">Transacciones</span>
+        </button>
+        <button class="mobile-drawer-item" onclick="mobileNavDrawer('creditos')">
+          <div class="mobile-drawer-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><rect x="2" y="5" width="20" height="14" rx="2" stroke="var(--blue)" stroke-width="2"/><path d="M2 10h20" stroke="var(--blue)" stroke-width="2"/></svg></div>
+          <span class="mobile-drawer-label">Créditos</span>
+        </button>
+        <button class="mobile-drawer-item" onclick="mobileNavDrawer('metas')">
+          <div class="mobile-drawer-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z" stroke="var(--amber)" stroke-width="2" stroke-linecap="round"/></svg></div>
+          <span class="mobile-drawer-label">Metas</span>
+        </button>
+        <button class="mobile-drawer-item" onclick="mobileNavDrawer('config')">
+          <div class="mobile-drawer-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="3" stroke="var(--text2)" stroke-width="2"/><path d="M12 2v3m0 14v3M4.22 4.22l2.12 2.12m11.32 11.32l2.12 2.12M2 12h3m14 0h3M4.22 19.78l2.12-2.12M17.66 6.34l2.12-2.12" stroke="var(--text2)" stroke-width="2" stroke-linecap="round"/></svg></div>
+          <span class="mobile-drawer-label">Config.</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
 </main>
 
 <script>
@@ -1230,6 +1456,7 @@ function renderQuickSummary(){
 }
 
 function updateMetrics(){
+  setTimeout(updateMobileHero, 50);
   var now=new Date(),m=now.getMonth(),y=now.getFullYear();
   var inc=0,exp=0;
   transactions.forEach(t=>{
@@ -2616,7 +2843,7 @@ function saveEditTx(){
   t.desc=desc; t.amount=amt; t.cat=catVal; t.date=date; t.type=editingTxType;
   sortTx();saveTx();
   closeEditModal();
-  renderTx();renderQuickSummary();updateMetrics();renderRecent();
+  renderTx();renderQuickSummary();updateMetrics();renderRecent();initMobileNav();updateMobileHero();
   if(document.getElementById('tab-pagos').classList.contains('active')) pagosRender();
 }
 
@@ -2625,7 +2852,7 @@ function deleteTxFromModal(){
   transactions=transactions.filter(t=>t.id!==editingTxId);
   saveTx();
   closeEditModal();
-  renderTx();renderQuickSummary();updateMetrics();renderRecent();
+  renderTx();renderQuickSummary();updateMetrics();renderRecent();initMobileNav();updateMobileHero();
   if(document.getElementById('tab-pagos').classList.contains('active')) pagosRender();
 }
 
@@ -2787,7 +3014,7 @@ function driveLoad(){
     if(driveApplyData(raw)){
       driveShowStatus('✓ Datos cargados correctamente desde Drive','#1D9E75');
       // Re-render everything
-      updateMetrics();renderRecent();setTimeout(renderCharts,100);
+      updateMetrics();renderRecent();initMobileNav();updateMobileHero();setTimeout(renderCharts,100);
       if(document.getElementById('tab-transacciones').classList.contains('active')) renderTx();
       if(document.getElementById('tab-presupuesto').classList.contains('active')) renderAnnualView();
       if(document.getElementById('tab-metas').classList.contains('active')) renderGoals();
@@ -3851,6 +4078,97 @@ function makeLineGradient(ctx, hexColor, h){
   g.addColorStop(1,'rgba('+r+','+gv+','+b+',0)');
   return g;
 }
+
+// ── MOBILE NAV ───────────────────────────────────────────────────────────────
+function isMobile(){ return window.innerWidth <= 640; }
+
+function mobileNav(tab, btn){
+  showTab(tab, null);
+  document.querySelectorAll('.mobile-nav-item').forEach(function(b){ b.classList.remove('active'); });
+  if(btn) btn.classList.add('active');
+}
+
+function mobileNavAdd(){
+  showTab('transacciones', null);
+  document.querySelectorAll('.mobile-nav-item').forEach(function(b){ b.classList.remove('active'); });
+  // Scroll al formulario de nueva transacción
+  setTimeout(function(){
+    var el = document.getElementById('inp-desc');
+    if(el) el.focus();
+  }, 150);
+}
+
+function mobileDrawerOpen(){
+  document.getElementById('mobile-drawer-backdrop').classList.add('open');
+}
+
+function mobileDrawerClose(){
+  document.getElementById('mobile-drawer-backdrop').classList.remove('open');
+}
+
+function mobileNavDrawer(tab){
+  mobileDrawerClose();
+  showTab(tab, null);
+  document.querySelectorAll('.mobile-nav-item').forEach(function(b){ b.classList.remove('active'); });
+}
+
+function updateMobileHero(){
+  if(!isMobile()) return;
+  var now = new Date();
+  var y = now.getFullYear(), m = now.getMonth();
+  var inc = 0, exp = 0;
+  transactions.forEach(function(t){
+    var td = new Date(t.date + 'T00:00:00');
+    if(td.getMonth()===m && td.getFullYear()===y){
+      if(t.type==='ingreso') inc += t.amount;
+      else exp += t.amount;
+    }
+  });
+  var bal = inc - exp;
+  var balEl = document.getElementById('mh-balance');
+  if(balEl){
+    balEl.textContent = (bal >= 0 ? '+' : '') + fmt(bal);
+  }
+  var incEl = document.getElementById('mh-inc');
+  if(incEl) incEl.textContent = fmt(inc);
+  var expEl = document.getElementById('mh-exp');
+  if(expEl) expEl.textContent = fmt(exp);
+
+  // Mini métricas
+  // Pagos pendientes: suma de presupuestado no gastado del mes
+  var pagosP = 0;
+  budStruct.filter(function(c){ return c.type==='expense'; }).forEach(function(cat){
+    cat.subs.forEach(function(sub){
+      var bud = getBudVal(cat.id, sub.id, y, m);
+      var spent = getTxSpent(sub.id, cat.id, y, m);
+      if(bud > spent) pagosP += (bud - spent);
+    });
+  });
+  var mmP = document.getElementById('mm-pagos');
+  if(mmP) mmP.textContent = fmt(pagosP);
+
+  // Ahorro del mes
+  var mmA = document.getElementById('mm-ahorro');
+  if(mmA) mmA.textContent = (bal >= 0 ? '+' : '') + fmt(bal);
+
+  // Total créditos pendientes (tu parte)
+  var totalCred = 0;
+  creditos.forEach(function(c){ totalCred += creditoGetMiDeuda(c); });
+  var mmC = document.getElementById('mm-creditos');
+  if(mmC) mmC.textContent = totalCred > 0 ? fmt(totalCred) : '—';
+}
+
+function initMobileNav(){
+  var nav = document.getElementById('mobile-nav');
+  if(nav && isMobile()) nav.style.display = 'flex';
+}
+
+window.addEventListener('resize', function(){
+  var nav = document.getElementById('mobile-nav');
+  if(!nav) return;
+  nav.style.display = isMobile() ? 'flex' : 'none';
+});
+
 // ── INIT ───────────────────────────────────────────────────────────────────
 document.getElementById('struct-type').addEventListener('change',function(){
   document.getElementById('struct-parent-row').style.display=this.value==='sub'?'':'none';
@@ -3859,7 +4177,7 @@ document.getElementById('inp-date').value=new Date().toISOString().split('T')[0]
 // Init pagos
 // Init pagos rendered on tab open
 fillCatFromBudget('ingreso');
-updateMetrics();renderRecent();
+updateMetrics();renderRecent();initMobileNav();updateMobileHero();
 setTimeout(renderCharts,100);
 setTimeout(driveInit,1000);
 document.addEventListener('keydown',function(e){if(e.key==='Escape'){closeEditModal();pagosCloseSpentModal();credCloseEdit();}});
