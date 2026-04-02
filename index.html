@@ -2984,7 +2984,8 @@ function creditoGetMiPct(c){
   return (c.miPct !== undefined && c.miPct !== null) ? c.miPct : 100;
 }
 function creditoGetMiCuota(c){
-  return Math.round(creditoGetCuota(c) * creditoGetMiPct(c) / 100 * 100) / 100;
+  // La cuota del presupuesto ya es la parte real del usuario, no se divide
+  return creditoGetCuota(c);
 }
 function creditoGetMiDeuda(c){
   return Math.round(c.deudaPend * creditoGetMiPct(c) / 100 * 100) / 100;
@@ -3089,7 +3090,7 @@ function creditosRender(){
       '</div>' +
       // Mi cuota
       '<div style="text-align:right;flex-shrink:0">' +
-        '<div style="font-size:13px;font-weight:500;color:var(--text)">'+fmt(miCuota)+'</div>' +
+        '<div style="font-size:13px;font-weight:500;color:var(--text)">'+(cuota>0?fmt(cuota):'—')+'</div>' +
         '<div style="font-size:10px;color:var(--text3)">cuota/mes</div>' +
       '</div>' +
       // Botones editar/eliminar
@@ -3127,8 +3128,7 @@ function creditosRender(){
         '</div>' +
         '<div style="background:var(--bg2);border-radius:var(--radius);padding:10px 12px">' +
           '<div style="font-size:11px;color:var(--text2);margin-bottom:4px">Cuota mensual</div>' +
-          '<div style="font-size:15px;font-weight:500;color:var(--text)">'+(cuota>0?fmt(miCuota):'<span style="font-size:12px;color:var(--text3)">—</span>')+'</div>' +
-          (miPct < 100 && cuota > 0 ? '<div style="font-size:11px;color:var(--text3);margin-top:2px">Total: '+fmt(cuota)+'</div>' : '') +
+          '<div style="font-size:15px;font-weight:500;color:var(--text)">'+(cuota>0?fmt(cuota):'<span style="font-size:12px;color:var(--text3)">—</span>')+'</div>' +
         '</div>' +
         '<div style="background:var(--bg2);border-radius:var(--radius);padding:10px 12px">' +
           '<div style="font-size:11px;color:var(--text2);margin-bottom:4px">Cuotas restantes</div>' +
@@ -3145,7 +3145,7 @@ function creditosRender(){
       '<div style="margin-bottom:'+(interesMes>0?'0.75rem':'0')+'">' +
         '<div style="display:flex;justify-content:space-between;font-size:12px;color:var(--text2);margin-bottom:5px">' +
           '<span>Amortizado '+pct+'% · '+fmt(amortizado)+'</span>' +
-          '<span>Pendiente '+fmt(c.deudaPend)+'</span>' +
+          '<span>Pendiente '+fmt(miDeuda)+(miPct<100?' <span style="color:var(--text3);font-size:11px">(total '+fmt(c.deudaPend)+')</span>':'')+'</span>' +
         '</div>' +
         '<div style="height:8px;background:var(--bg3);border-radius:4px;overflow:hidden">' +
           '<div style="height:100%;border-radius:4px;background:'+barColor+';width:'+pct+'%;transition:width .5s"></div>' +
@@ -3172,7 +3172,7 @@ function creditosUpdateSummary(){
   var totalDeuda = 0, totalCuotas = 0, maxCuotas = 0;
   creditos.forEach(function(c){
     totalDeuda += creditoGetMiDeuda(c);
-    totalCuotas += creditoGetMiCuota(c);
+    totalCuotas += creditoGetCuota(c);
     if(c.cuotasRest > maxCuotas) maxCuotas = c.cuotasRest;
   });
   var deudaEl = document.getElementById('cred-s-deuda');
