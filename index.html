@@ -1264,10 +1264,20 @@ function renderCharts(){
   var colors=sorted.map(function(x){ return x.color; });
   var total=vals.reduce((a,b)=>a+b,0);
   if(doughnutChart)doughnutChart.destroy();
+  var ct2=chartTheme();
+  Chart.defaults.font.family="'Space Grotesk', sans-serif";
   doughnutChart=new Chart(document.getElementById('chartDoughnut').getContext('2d'),{
     type:'doughnut',
-    data:{labels:cats,datasets:[{data:vals,backgroundColor:colors,borderWidth:3,borderColor:'transparent'}]},
-    options:{responsive:true,maintainAspectRatio:false,cutout:'68%',plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>' '+c.label+': '+fmt(c.parsed)}}}}
+    data:{labels:cats,datasets:[{data:vals,backgroundColor:colors,borderWidth:4,
+      borderColor:document.documentElement.getAttribute('data-theme')==='dark'?'#0E0E10':'#F7F6F3',
+      hoverBorderColor:'transparent'}]},
+    options:{responsive:true,maintainAspectRatio:false,cutout:'70%',
+      plugins:{legend:{display:false},
+        tooltip:{backgroundColor:ct2.tipBg,titleColor:ct2.tick,bodyColor:ct2.tipText,
+          borderColor:ct2.tipBorder,borderWidth:1,padding:10,cornerRadius:10,
+          callbacks:{label:c=>' '+c.label+': '+fmt(c.parsed)}}
+      }
+    }
   });
   document.getElementById('legend-cat').innerHTML=cats.length?cats.map((c,i)=>
     '<span><span class="legend-dot" style="background:'+colors[i]+'"></span>'+c+' '+(total?Math.round(vals[i]/total*100):0)+'%</span>'
@@ -1286,15 +1296,33 @@ function renderCharts(){
     incData.push(Math.round(inc));expData.push(Math.round(exp));
   }
   if(lineChart)lineChart.destroy();
-  lineChart=new Chart(document.getElementById('chartLine').getContext('2d'),{
+  var lcCtx=document.getElementById('chartLine').getContext('2d');
+  var ct=chartTheme();
+  var gInc=makeLineGradient(lcCtx,'#34D399',200);
+  var gExp=makeLineGradient(lcCtx,'#FF6B35',200);
+  var dark=document.documentElement.getAttribute('data-theme')==='dark';
+  Chart.defaults.font.family="'Space Grotesk', sans-serif";
+  lineChart=new Chart(lcCtx,{
     type:'line',
     data:{labels:monthLabels,datasets:[
-      {label:'Ingresos',data:incData,borderColor:'#1D9E75',backgroundColor:'rgba(29,158,117,.1)',tension:.4,fill:true,pointRadius:4,pointBackgroundColor:'#1D9E75'},
-      {label:'Gastos',data:expData,borderColor:'#D85A30',backgroundColor:'rgba(216,90,48,.08)',tension:.4,fill:true,pointRadius:4,pointBackgroundColor:'#D85A30'}
+      {label:'Ingresos',data:incData,borderColor:'#34D399',backgroundColor:gInc,tension:.4,fill:true,
+       pointRadius:4,pointHoverRadius:6,pointBackgroundColor:'#34D399',
+       pointBorderColor:dark?'#17171A':'#fff',pointBorderWidth:2,borderWidth:2.5},
+      {label:'Gastos',data:expData,borderColor:'#FF6B35',backgroundColor:gExp,tension:.4,fill:true,
+       pointRadius:4,pointHoverRadius:6,pointBackgroundColor:'#FF6B35',
+       pointBorderColor:dark?'#17171A':'#fff',pointBorderWidth:2,borderWidth:2.5}
     ]},
     options:{responsive:true,maintainAspectRatio:false,
-      plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>' '+c.dataset.label+': '+fmt(c.parsed.y)}}},
-      scales:{x:{grid:{display:false},ticks:{font:{size:11},color:'#888780'}},y:{grid:{color:'rgba(128,128,128,.12)'},ticks:{callback:function(v){return fmt(v);},font:{size:11},color:'#888780'}}}
+      plugins:{
+        legend:{display:false},
+        tooltip:{backgroundColor:ct.tipBg,titleColor:ct.tick,bodyColor:ct.tipText,
+          borderColor:ct.tipBorder,borderWidth:1,padding:10,cornerRadius:10,
+          callbacks:{label:c=>' '+c.dataset.label+': '+fmt(c.parsed.y)}}
+      },
+      scales:{
+        x:{grid:{display:false},ticks:{font:{size:11},color:ct.tick}},
+        y:{grid:{color:ct.grid},ticks:{callback:function(v){return fmt(v);},font:{size:11},color:ct.tick}}
+      }
     }
   });
 }
@@ -2278,14 +2306,23 @@ function renderAnnualView(){
   if(centerEl) centerEl.textContent=pieTotal>0?fmtC(pieTotal):'—';
 
   if(pieLabels.length&&document.getElementById('chartBudPie')){
+    var ctp=chartTheme();
+    Chart.defaults.font.family="'Space Grotesk', sans-serif";
     budPieChart=new Chart(document.getElementById('chartBudPie').getContext('2d'),{
       type:'doughnut',
-      data:{labels:pieLabels,datasets:[{data:pieVals,backgroundColor:pieColors,borderWidth:3,borderColor:'transparent',hoverBorderColor:'transparent'}]},
-      options:{responsive:true,maintainAspectRatio:false,cutout:'62%',
-        plugins:{legend:{display:false},tooltip:{callbacks:{label:function(c){
-          var pct=pieTotal>0?Math.round(c.parsed/pieTotal*100):0;
-          return ' '+c.label+': '+fmtC(c.parsed)+' ('+pct+'%)';
-        }}}}}
+      data:{labels:pieLabels,datasets:[{data:pieVals,backgroundColor:pieColors,borderWidth:4,
+        borderColor:document.documentElement.getAttribute('data-theme')==='dark'?'#0E0E10':'#F7F6F3',
+        hoverBorderColor:'transparent'}]},
+      options:{responsive:true,maintainAspectRatio:false,cutout:'65%',
+        plugins:{legend:{display:false},
+          tooltip:{backgroundColor:ctp.tipBg,titleColor:ctp.tick,bodyColor:ctp.tipText,
+            borderColor:ctp.tipBorder,borderWidth:1,padding:10,cornerRadius:10,
+            callbacks:{label:function(c){
+              var pct=pieTotal>0?Math.round(c.parsed/pieTotal*100):0;
+              return ' '+c.label+': '+fmtC(c.parsed)+' ('+pct+'%)';
+            }}}
+        }
+      }
     });
     document.getElementById('pie-legend').innerHTML=pieLabels.map((l,i)=>{
       var pct=pieTotal>0?Math.round(pieVals[i]/pieTotal*100):0;
@@ -2301,18 +2338,24 @@ function renderAnnualView(){
 
   // ── Bar chart ─────────────────────────────────────────────────────────────
   if(annualBarChart)annualBarChart.destroy();
+  var ctb=chartTheme();
+  Chart.defaults.font.family="'Space Grotesk', sans-serif";
   annualBarChart=new Chart(document.getElementById('chartAnnualBar').getContext('2d'),{
     type:'bar',
     data:{labels:MONTHS_SHORT,datasets:[
-      {label:'Ingresos',data:incMonths.map(v=>parseFloat(v.toFixed(2))),backgroundColor:'rgba(29,158,117,.75)',borderRadius:3},
-      {label:'Gastos',data:expMonths.map(v=>parseFloat(v.toFixed(2))),backgroundColor:'rgba(216,90,48,.75)',borderRadius:3},
-      {label:'Ahorro',data:savMonths.map(v=>parseFloat(v.toFixed(2))),backgroundColor:'rgba(55,138,221,.75)',borderRadius:3}
+      {label:'Ingresos',data:incMonths.map(v=>parseFloat(v.toFixed(2))),backgroundColor:'rgba(52,211,153,0.75)',borderRadius:5,borderSkipped:false},
+      {label:'Gastos',data:expMonths.map(v=>parseFloat(v.toFixed(2))),backgroundColor:'rgba(255,107,53,0.75)',borderRadius:5,borderSkipped:false},
+      {label:'Ahorro',data:savMonths.map(v=>parseFloat(v.toFixed(2))),backgroundColor:'rgba(96,165,250,0.75)',borderRadius:5,borderSkipped:false}
     ]},
     options:{responsive:true,maintainAspectRatio:false,
-      plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>' '+c.dataset.label+': '+fmt(c.parsed.y)}}},
+      plugins:{legend:{display:false},
+        tooltip:{backgroundColor:ctb.tipBg,titleColor:ctb.tick,bodyColor:ctb.tipText,
+          borderColor:ctb.tipBorder,borderWidth:1,padding:10,cornerRadius:10,
+          callbacks:{label:c=>' '+c.dataset.label+': '+fmt(c.parsed.y)}}
+      },
       scales:{
-        x:{grid:{display:false},ticks:{font:{size:11},color:'#888780',autoSkip:false,maxRotation:0}},
-        y:{grid:{color:'rgba(128,128,128,.12)'},ticks:{callback:function(v){return fmt(v);},font:{size:11},color:'#888780'}}
+        x:{grid:{display:false},ticks:{font:{size:11},color:ctb.tick,autoSkip:false,maxRotation:0}},
+        y:{grid:{color:ctb.grid},ticks:{callback:function(v){return fmt(v);},font:{size:11},color:ctb.tick}}
       }
     }
   });
@@ -3456,8 +3499,7 @@ function creditosRender(){
         '<button onclick="event.stopPropagation();credOpenEdit('+c.id+')" style="background:none;border:0.5px solid var(--border2);border-radius:var(--radius);cursor:pointer;color:var(--text2);font-size:12px;padding:4px 10px;font-family:inherit">Editar</button>' +
         '<button onclick="event.stopPropagation();deleteCredito('+c.id+')" style="background:none;border:none;cursor:pointer;color:var(--text3);font-size:18px;line-height:1;padding:0 4px">×</button>' +
       '</div>' +
-      // Chevron
-      '<span style="font-size:10px;color:var(--text3);flex-shrink:0;transition:transform .2s;transform:'+(isOpen?'rotate(90deg)':'rotate(0)')+'"  id="cred-chev-'+c.id+'">&#9654;</span>';
+      '';
 
     card.appendChild(summary);
 
@@ -3791,6 +3833,24 @@ function aplicarPaletaColores(){
   plantillaStatus('Paleta aplicada correctamente a ' + budStruct.length + ' categorías.', 'var(--green)');
 }
 
+
+function chartTheme(){
+  var dark = document.documentElement.getAttribute('data-theme')==='dark';
+  return {
+    grid:   dark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)',
+    tick:   dark ? '#5A5A55' : '#A8A7A2',
+    tipBg:  dark ? '#17171A' : '#ffffff',
+    tipText:dark ? '#F2F1EE' : '#111110',
+    tipBorder: dark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)'
+  };
+}
+function makeLineGradient(ctx, hexColor, h){
+  var g = ctx.createLinearGradient(0,0,0,h||200);
+  var r=parseInt(hexColor.slice(1,3),16), gv=parseInt(hexColor.slice(3,5),16), b=parseInt(hexColor.slice(5,7),16);
+  g.addColorStop(0,'rgba('+r+','+gv+','+b+',0.18)');
+  g.addColorStop(1,'rgba('+r+','+gv+','+b+',0)');
+  return g;
+}
 // ── INIT ───────────────────────────────────────────────────────────────────
 document.getElementById('struct-type').addEventListener('change',function(){
   document.getElementById('struct-parent-row').style.display=this.value==='sub'?'':'none';
