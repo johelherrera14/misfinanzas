@@ -544,6 +544,24 @@
   @media (min-width: 641px) {
     .mobile-hero, .mobile-mini-metrics, .mobile-nav, .mobile-drawer-backdrop { display: none !important; }
   }
+
+  /* ── TABLA PRESUPUESTO MÓVIL ── */
+  @media (max-width: 640px) {
+    #bud-annual-table table { font-size: 11px; }
+    #bud-annual-table td, #bud-annual-table th { padding: 7px 8px !important; }
+    #bud-annual-table td:first-child { min-width: 100px; max-width: 120px; }
+    #bud-annual-table td:not(:first-child) { min-width: 60px; }
+  }
+
+  @media (orientation: landscape) and (max-width: 900px) {
+    #bud-annual-table table { font-size: 10.5px; }
+    #bud-annual-table td, #bud-annual-table th { padding: 6px 7px !important; }
+    #bud-annual-table td:first-child { min-width: 90px; }
+    #bud-annual-table td:not(:first-child) { min-width: 52px; }
+    body { padding-bottom: 0; }
+    .mobile-nav { height: 56px !important; padding-bottom: calc(6px + env(safe-area-inset-bottom)) !important; }
+  }
+
 </style>
 </head>
 <body>
@@ -737,8 +755,11 @@
     </div>
 
     <!-- Tabla pivotada -->
-    <div class="card" style="padding:0;overflow-x:auto">
-      <div id="bud-annual-table"></div>
+    <div id="bud-scroll-hint" style="display:none;font-size:11px;color:var(--text3);text-align:right;padding:0 4px 4px;margin-bottom:-4px">
+      ← desliza para ver todos los meses →
+    </div>
+    <div class="card" style="padding:0;overflow-x:auto;-webkit-overflow-scrolling:touch;overscroll-behavior-x:contain">
+      <div id="bud-annual-table" style="min-width:700px"></div>
     </div>
 
     <!-- Gráfica de tarta por categoría -->
@@ -4159,6 +4180,9 @@ function updateMobileHero(){
 }
 
 function initMobileNav(){
+  var hint = document.getElementById('bud-scroll-hint');
+  if(hint) hint.style.display = isMobile() ? 'block' : 'none';
+
   var nav = document.getElementById('mobile-nav');
   if(nav && isMobile()) nav.style.display = 'flex';
 }
