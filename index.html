@@ -664,6 +664,35 @@
   }
   .user-name { font-size: 12px; font-weight: 500; color: var(--text); max-width: 100px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
+
+  /* ── MULTI CUENTA ── */
+  .accounts-menu {
+    position: absolute;
+    top: calc(100% + 8px);
+    right: 0;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-xl);
+    box-shadow: var(--shadow-lg);
+    min-width: 240px;
+    z-index: 500;
+    overflow: hidden;
+    padding: 8px 0;
+  }
+  .accounts-menu-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 16px; cursor: pointer;
+    transition: background .15s;
+    border: none; background: none; width: 100%;
+    font-family: 'DM Sans', sans-serif;
+    text-align: left;
+  }
+  .accounts-menu-item:hover { background: var(--bg2); }
+  .accounts-menu-item.active-account { background: var(--accent-dim); }
+  .accounts-menu-divider { height: 1px; background: var(--border); margin: 6px 0; }
+  .accounts-menu-label { font-size: 11px; color: var(--text3); padding: 4px 16px; text-transform: uppercase; letter-spacing: .06em; }
+  #user-chip-wrap { position: relative; }
+
 </style>
 </head>
 <body>
@@ -4861,23 +4890,134 @@ function fbSignOut(){
   });
 }
 
+// ── MULTI CUENTA ──────────────────────────────────────────────────────────
+var fbAccounts = JSON.parse(localStorage.getItem('fb_accounts') || '[]');
+var fbAccountsMenuOpen = false;
+
+function fbSaveAccounts(){
+  localStorage.setItem('fb_accounts', JSON.stringify(fbAccounts));
+}
+
+function fbGetInitials(user){
+  return (user.displayName||user.email||'U').split(' ').map(function(w){return w[0];}).slice(0,2).join('').toUpperCase();
+}
+
 function fbRenderUserChip(user){
   var wrap = document.getElementById('user-chip-wrap');
   if(!wrap) return;
-  var initials = (user.displayName||user.email||'U').split(' ').map(function(w){return w[0];}).slice(0,2).join('').toUpperCase();
+  var initials = fbGetInitials(user);
   var avatarHtml = user.photoURL
     ? '<img src="'+user.photoURL+'" class="user-avatar">'
     : '<div class="user-avatar-initials">'+initials+'</div>';
-  wrap.innerHTML = '<button class="user-chip" onclick="fbShowUserMenu()">'
+  wrap.innerHTML = '<button class="user-chip" onclick="fbToggleAccountsMenu()">'
     + avatarHtml
     + '<span class="user-name">'+(user.displayName||user.email).split(' ')[0]+'</span>'
+    + '<span style="font-size:10px;color:var(--text3);margin-left:2px">▾</span>'
     + '</button>';
+
+  // Registrar cuenta activa
+  var exists = fbAccounts.find(function(a){ return a.uid === user.uid; });
+  if(!exists){
+    fbAccounts.push({
+      uid: user.uid,
+      displayName: user.displayName || '',
+      email: user.email || '',
+      photoURL: user.photoURL || ''
+    });
+    fbSaveAccounts();
+  }
+}
+
+function fbToggleAccountsMenu(){
+  var existing = document.getElementById('accounts-menu');
+  if(existing){ existing.remove(); fbAccountsMenuOpen=false; return; }
+  fbAccountsMenuOpen = true;
+  var wrap = document.getElementById('user-chip-wrap');
+  var menu = document.createElement('div');
+  menu.className = 'accounts-menu';
+  menu.id = 'accounts-menu';
+
+  // Header
+  var headerHtml = '<div class="accounts-menu-label">Cuentas activas</div>';
+
+  // Lista de cuentas
+  var accountsHtml = fbAccounts.map(function(acc){
+    var isActive = fbUser && acc.uid === fbUser.uid;
+    var initials = (acc.displayName||acc.email||'U').split(' ').map(function(w){return w[0];}).slice(0,2).join('').toUpperCase();
+    var avatarHtml = acc.photoURL
+      ? '<img src="'+acc.photoURL+'" style="width:28px;height:28px;border-radius:50%;object-fit:cover">'
+      : '<div style="width:28px;height:28px;border-radius:50%;background:var(--accent);color:#fff;font-size:11px;font-weight:600;display:flex;align-items:center;justify-content:center;flex-shrink:0">'+initials+'</div>';
+    return '<button class="accounts-menu-item'+(isActive?' active-account':'')+'" data-uid="'+acc.uid+'" onclick="fbSwitchAccount(this.getAttribute(\'data-uid\'))">'
+      + avatarHtml
+      + '<div style="flex:1;min-width:0;text-align:left">'
+      + '<div style="font-size:13px;font-weight:500;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+(acc.displayName||acc.email.split('@')[0])+'</div>'
+      + '<div style="font-size:11px;color:var(--text3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+acc.email+'</div>'
+      + '</div>'
+      + (isActive ? '<span style="font-size:10px;color:var(--accent)">✓</span>' : '')
+      + '</button>';
+  }).join('');
+
+  var divider = '<div class="accounts-menu-divider"></div>';
+
+  var actionsHtml = '<button class="accounts-menu-item" onclick="fbAddAccount()">'
+    + '<div style="width:28px;height:28px;border-radius:50%;background:var(--bg2);display:flex;align-items:center;justify-content:center;font-size:18px;color:var(--text2);flex-shrink:0">+</div>'
+    + '<span style="font-size:13px;color:var(--text)">Añadir cuenta</span>'
+    + '</button>'
+    + '<button class="accounts-menu-item" onclick="fbSignOut()">'
+    + '<div style="width:28px;height:28px;border-radius:50%;background:var(--bg2);display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0">↩</div>'
+    + '<span style="font-size:13px;color:var(--red)">Cerrar sesión</span>'
+    + '</button>';
+
+  menu.innerHTML = headerHtml + accountsHtml + divider + actionsHtml;
+  wrap.appendChild(menu);
+
+  // Cerrar al hacer clic fuera
+  setTimeout(function(){
+    document.addEventListener('click', function handler(e){
+      if(!wrap.contains(e.target)){
+        menu.remove();
+        fbAccountsMenuOpen = false;
+        document.removeEventListener('click', handler);
+      }
+    });
+  }, 10);
+}
+
+async function fbSwitchAccount(uid){
+  var menu = document.getElementById('accounts-menu');
+  if(menu) menu.remove();
+
+  if(fbUser && uid === fbUser.uid) return; // ya estamos en esta cuenta
+
+  // Guardar datos de la cuenta actual antes de cambiar
+  if(fbUser) await fbSaveData();
+
+  // Abrir popup para que el usuario seleccione la cuenta
+  window._fbSignInWithPopup(window._fbAuth, window._fbProvider)
+    .then(async function(result){
+      // onAuthStateChanged se encargará del resto
+    })
+    .catch(function(err){
+      console.log('Switch account error:', err);
+    });
+}
+
+async function fbAddAccount(){
+  var menu = document.getElementById('accounts-menu');
+  if(menu) menu.remove();
+
+  // Guardar datos actuales
+  if(fbUser) await fbSaveData();
+
+  // Abrir popup para añadir nueva cuenta
+  window._fbSignInWithPopup(window._fbAuth, window._fbProvider)
+    .catch(function(err){
+      console.log('Add account error:', err);
+    });
 }
 
 function fbShowUserMenu(){
-  if(confirm('¿Cerrar sesión de ' + (fbUser.displayName||fbUser.email) + '?')){
-    fbSignOut();
-  }
+  fbToggleAccountsMenu();
 }
 
 async function fbSaveData(){
