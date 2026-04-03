@@ -1144,7 +1144,10 @@
         <div style="display:flex;justify-content:space-between"><span>Transacciones guardadas</span><span id="cfg-tx-count" style="color:var(--text)">0</span></div>
         <div style="display:flex;justify-content:space-between"><span>Categorías personalizadas</span><span id="cfg-cat-count" style="color:var(--text)">0</span></div>
         <div class="sep"></div>
-        <div><button class="btn-sm" onclick="exportData()" style="margin-right:8px">Exportar datos (JSON)</button><button class="btn-sm" onclick="if(confirm('¿Borrar todos los datos? Esta acción no se puede deshacer.')){localStorage.clear();location.reload()}" style="color:var(--red)">Borrar todos los datos</button></div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn-sm" onclick="exportData()">Exportar datos (JSON)</button>
+          <button class="btn-sm" onclick="restablecerCuenta()" style="color:var(--red)">Restablecer cuenta</button>
+        </div>
       </div>
     </div>
   </div>
@@ -4515,6 +4518,32 @@ window.onFirebaseAuthChange = async function(user){
     document.getElementById('user-chip-wrap').innerHTML = '';
   }
 };
+
+
+async function restablecerCuenta(){
+  var confirmacion = confirm('¿Restablecer tu cuenta?\n\nEsto eliminará TODOS tus datos (transacciones, presupuesto, créditos, metas) y los reemplazará por la plantilla por defecto.\n\nEsta acción no se puede deshacer.');
+  if(!confirmacion) return;
+
+  var confirmacion2 = confirm('¿Estás completamente seguro? Se perderán todos tus datos.');
+  if(!confirmacion2) return;
+
+  // Borrar en Firestore si está logueado
+  if(fbUser && window._fbDb){
+    try{
+      var ref = window._fbDoc(window._fbDb, 'users', fbUser.uid);
+      await window._fbSetDoc(ref, { updatedAt: new Date().toISOString(), reseteado: true });
+    } catch(e){ console.error('Error borrando en Firestore:', e); }
+  }
+
+  // Borrar localStorage
+  var keysToRemove = ['fin_bstruct','fin_bvals','fin_bnotes','fin_tx','fin_creditos',
+    'fin_goals','fin_pagos_checked','fin_pagos_spent','fin_currency',
+    'fin_bsumexp','fin_local_ts','fin_pending_sync','fin_cats'];
+  keysToRemove.forEach(function(k){ localStorage.removeItem(k); });
+
+  // Recargar para aplicar plantilla por defecto
+  location.reload();
+}
 
 // ── INIT ───────────────────────────────────────────────────────────────────
 // Procesar redirect pendiente de Safari iOS
