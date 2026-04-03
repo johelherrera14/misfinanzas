@@ -5124,19 +5124,32 @@ function refreshUI(){
 // Hook: guardar cuando cambian datos importantes
 var _origSaveTx = typeof saveTransactions !== 'undefined' ? saveTransactions : null;
 
+var fbPreviousUid = null;
+
 window.onFirebaseAuthChange = async function(user){
   if(user){
+    var isAccountSwitch = fbPreviousUid !== null && fbPreviousUid !== user.uid;
+    fbPreviousUid = user.uid;
     fbUser = user;
     document.getElementById('login-screen').style.display = 'none';
     fbRenderUserChip(user);
 
-    // Cargar datos con comparación de timestamps
+    if(isAccountSwitch){
+      // Cambio de cuenta — limpiar localStorage para que Firebase siempre gane
+      var keysToRemove = ['fin_bstruct','fin_bvals','fin_bnotes','fin_tx','fin_creditos',
+        'fin_goals','fin_pagos_checked','fin_pagos_spent','fin_currency',
+        'fin_bsumexp','fin_local_ts','fin_pending_sync'];
+      keysToRemove.forEach(function(k){ localStorage.removeItem(k); });
+      console.log('Cambio de cuenta → localStorage limpiado, cargando de Firebase');
+    }
+
+    // Cargar datos de Firebase
     var loaded = await fbLoadData();
 
     if(!loaded){
-      // No hay datos en Firebase → primera vez, subir localStorage si existe
+      // No hay datos en Firebase → primera vez
       var hasLocal = localStorage.getItem('fin_tx') || localStorage.getItem('fin_bstruct');
-      if(hasLocal){
+      if(hasLocal && !isAccountSwitch){
         await fbSaveData();
         console.log('Primera vez: datos locales subidos a Firebase');
       }
@@ -5146,6 +5159,7 @@ window.onFirebaseAuthChange = async function(user){
     refreshUI();
 
   } else {
+    fbPreviousUid = null;
     fbUser = null;
     document.getElementById('login-screen').style.display = 'flex';
     document.getElementById('user-chip-wrap').innerHTML = '';
