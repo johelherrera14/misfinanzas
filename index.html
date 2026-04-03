@@ -4330,15 +4330,23 @@ var fbUser = null;
 function fbSignIn(){
   document.getElementById('login-error').textContent = '';
   if(!window._fbAuth){ document.getElementById('login-error').textContent = 'Firebase no cargado aún, espera un momento.'; return; }
-  window._fbSignInWithPopup(window._fbAuth, window._fbProvider)
-    .catch(function(err){
-      // Si falla popup, intentar redirect como fallback
-      if(err.code === 'auth/popup-blocked' || err.code === 'auth/popup-closed-by-user'){
-        window._fbSignInWithRedirect(window._fbAuth, window._fbProvider);
-      } else {
+  // Safari iOS no soporta popup correctamente — usar redirect
+  var isSafariIOS = /iP(hone|ad|od)/.test(navigator.userAgent) && /WebKit/.test(navigator.userAgent) && !/CriOS/.test(navigator.userAgent);
+  if(isSafariIOS){
+    window._fbSignInWithRedirect(window._fbAuth, window._fbProvider)
+      .catch(function(err){
         document.getElementById('login-error').textContent = 'Error: ' + err.message;
-      }
-    });
+      });
+  } else {
+    window._fbSignInWithPopup(window._fbAuth, window._fbProvider)
+      .catch(function(err){
+        if(err.code === 'auth/popup-blocked' || err.code === 'auth/popup-closed-by-user'){
+          window._fbSignInWithRedirect(window._fbAuth, window._fbProvider);
+        } else {
+          document.getElementById('login-error').textContent = 'Error: ' + err.message;
+        }
+      });
+  }
 }
 
 function fbSignOut(){
