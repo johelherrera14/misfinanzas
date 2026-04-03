@@ -869,6 +869,8 @@
       </div>
       <div style="display:flex;gap:8px">
         <button onclick="openBudStructModal()" class="btn-sm" style="font-size:12px;padding:5px 14px">+ Gestionar estructura</button>
+        <button onclick="budToggleAll()" class="btn-sm" id="btn-bud-toggle-all" style="font-size:12px;padding:5px 14px">Expandir todo</button>
+        <button onclick="budLimpiarValores()" class="btn-sm" style="font-size:12px;padding:5px 14px;color:var(--red)">Limpiar valores</button>
         <span style="font-size:12px;color:var(--text2);line-height:32px">Clic: editar · Doble clic: copiar al resto del año</span>
       </div>
     </div>
@@ -4543,6 +4545,31 @@ async function restablecerCuenta(){
 
   // Recargar para aplicar plantilla por defecto
   location.reload();
+}
+
+
+function budToggleAll(){
+  // Determinar estado actual — si alguna está cerrada, expandir todas
+  var allOpen = budStruct.every(function(cat){ return !!budExpanded[cat.id]; });
+  budStruct.forEach(function(cat){ budExpanded[cat.id] = !allOpen; });
+  // Abrir también las secciones income/expense
+  budSummaryExp.income = !allOpen;
+  budSummaryExp.expense = !allOpen;
+  save('fin_bsumexp', budSummaryExp);
+  // Actualizar texto del botón
+  var btn = document.getElementById('btn-bud-toggle-all');
+  if(btn) btn.textContent = allOpen ? 'Expandir todo' : 'Colapsar todo';
+  renderAnnualView();
+}
+
+function budLimpiarValores(){
+  var ok1 = confirm('¿Limpiar todos los valores del presupuesto?\n\nEsta acción borrará todos los importes introducidos. La estructura de categorías no se verá afectada.');
+  if(!ok1) return;
+  var ok2 = confirm('¿Estás seguro? Los valores se borrarán definitivamente.');
+  if(!ok2) return;
+  budValues = {};
+  saveBudValues();
+  renderAnnualView();
 }
 
 // ── INIT ───────────────────────────────────────────────────────────────────
