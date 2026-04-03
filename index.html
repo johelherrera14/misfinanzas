@@ -15,7 +15,7 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-app.js";
-  import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-auth.js";
+  import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-auth.js";
   import { getFirestore, doc, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-firestore.js";
 
   const firebaseConfig = {
@@ -38,11 +38,20 @@
   window._fbDb = db;
   window._fbProvider = provider;
   window._fbSignInWithPopup = signInWithPopup;
+  window._fbSignInWithRedirect = signInWithRedirect;
+  window._fbGetRedirectResult = getRedirectResult;
   window._fbSignOut = signOut;
   window._fbOnAuthStateChanged = onAuthStateChanged;
   window._fbDoc = doc;
   window._fbSetDoc = setDoc;
   window._fbGetDoc = getDoc;
+
+  // Manejar resultado de redirect (Safari iOS)
+  getRedirectResult(auth).then(function(result){
+    if(result && result.user && window.onFirebaseAuthChange){
+      window.onFirebaseAuthChange(result.user);
+    }
+  }).catch(function(err){ console.log('Redirect result error:', err); });
 
   // Escuchar cambios de sesión
   onAuthStateChanged(auth, function(user){
@@ -4317,10 +4326,7 @@ var fbUser = null;
 function fbSignIn(){
   document.getElementById('login-error').textContent = '';
   if(!window._fbAuth){ document.getElementById('login-error').textContent = 'Firebase no cargado aún, espera un momento.'; return; }
-  window._fbSignInWithPopup(window._fbAuth, window._fbProvider)
-    .then(function(result){
-      // onAuthStateChanged se encarga del resto
-    })
+  window._fbSignInWithRedirect(window._fbAuth, window._fbProvider)
     .catch(function(err){
       document.getElementById('login-error').textContent = 'Error al iniciar sesión: ' + err.message;
     });
