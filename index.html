@@ -4529,21 +4529,35 @@ async function restablecerCuenta(){
   var confirmacion2 = confirm('¿Estás completamente seguro? Se perderán todos tus datos.');
   if(!confirmacion2) return;
 
-  // Borrar en Firestore si está logueado
-  if(fbUser && window._fbDb){
-    try{
-      var ref = window._fbDoc(window._fbDb, 'users', fbUser.uid);
-      await window._fbSetDoc(ref, { updatedAt: new Date().toISOString(), reseteado: true });
-    } catch(e){ console.error('Error borrando en Firestore:', e); }
-  }
-
   // Borrar localStorage
   var keysToRemove = ['fin_bstruct','fin_bvals','fin_bnotes','fin_tx','fin_creditos',
     'fin_goals','fin_pagos_checked','fin_pagos_spent','fin_currency',
     'fin_bsumexp','fin_local_ts','fin_pending_sync','fin_cats'];
   keysToRemove.forEach(function(k){ localStorage.removeItem(k); });
 
-  // Recargar para aplicar plantilla por defecto
+  // Guardar plantilla por defecto en Firestore directamente
+  if(fbUser && window._fbDb){
+    try{
+      var now = new Date().toISOString();
+      var defaultData = {
+        budStruct: JSON.stringify(budStruct),
+        budValues: JSON.stringify(budValues),
+        budNotes: JSON.stringify({}),
+        transactions: JSON.stringify([]),
+        goals: JSON.stringify([]),
+        creditos: JSON.stringify([]),
+        currencyConfig: JSON.stringify({code:'EUR',symbol:'€',name:'Euro',position:'after'}),
+        pagosChecked: JSON.stringify({}),
+        updatedAt: now
+      };
+      var ref = window._fbDoc(window._fbDb, 'users', fbUser.uid);
+      await window._fbSetDoc(ref, defaultData);
+      localStorage.setItem('fin_local_ts', now);
+      localStorage.removeItem('fin_pending_sync');
+    } catch(e){ console.error('Error restableciendo en Firestore:', e); }
+  }
+
+  // Recargar
   location.reload();
 }
 
