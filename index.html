@@ -1322,6 +1322,8 @@ var goalIcons=['✈','🏠','🛡','🎓','🚗','💻','🌴','💍','⚽','�
 function load(k,d){try{var v=localStorage.getItem(k);return v?JSON.parse(v):d;}catch(e){return d;}}
 function save(k,v){
   try{localStorage.setItem(k,JSON.stringify(v));}catch(e){}
+  // Actualizar timestamp local
+  try{localStorage.setItem('fin_local_ts', new Date().toISOString());}catch(e){}
   // Debounce autoguardado Firebase
   if(window._fbSaveTimer) clearTimeout(window._fbSaveTimer);
   window._fbSaveTimer = setTimeout(function(){ if(fbUser) fbSaveData(); }, 2000);
@@ -4370,6 +4372,7 @@ function fbShowUserMenu(){
 async function fbSaveData(){
   if(!fbUser || !window._fbDb) return;
   try {
+    var now = new Date().toISOString();
     var data = {
       budStruct: JSON.stringify(budStruct),
       budValues: JSON.stringify(budValues),
@@ -4379,12 +4382,17 @@ async function fbSaveData(){
       creditos: JSON.stringify(creditos),
       currencyConfig: JSON.stringify(currencyConfig),
       pagosChecked: JSON.stringify(pagosChecked),
-      updatedAt: new Date().toISOString()
+      updatedAt: now
     };
     var ref = window._fbDoc(window._fbDb, 'users', fbUser.uid);
     await window._fbSetDoc(ref, data);
+    // Sincronizar timestamp local con Firebase
+    try{localStorage.setItem('fin_local_ts', now);}catch(e){}
+    console.log('Guardado en Firebase:', now);
   } catch(e) {
     console.error('Error guardando en Firestore:', e);
+    // Sin internet: marcar pendiente de sync
+    try{localStorage.setItem('fin_pending_sync', 'true');}catch(e){}
   }
 }
 
@@ -4395,6 +4403,21 @@ async function fbLoadData(){
     var snap = await window._fbGetDoc(ref);
     if(snap.exists()){
       var data = snap.data();
+      var fbTs = data.updatedAt ? new Date(data.updatedAt).getTime() : 0;
+      var localTs = localStorage.getItem('fin_local_ts') ? new Date(localStorage.getItem('fin_local_ts')).getTime() : 0;
+      var hasLocalData = localStorage.getItem('fin_tx') || localStorage.getItem('fin_bstruct');
+
+      console.log('Firebase ts:', data.updatedAt, '| Local ts:', localStorage.getItem('fin_local_ts'));
+
+      // Si hay datos locales más recientes que Firebase → subir locales
+      if(hasLocalData && localTs > fbTs){
+        console.log('Local más reciente → subiendo a Firebase');
+        await fbSaveData();
+        return true;
+      }
+
+      // Firebase más reciente o igual → cargar de Firebase
+      console.log('Firebase más reciente → cargando de Firebase');
       if(data.budStruct) budStruct = JSON.parse(data.budStruct);
       if(data.budValues) budValues = JSON.parse(data.budValues);
       if(data.budNotes) budNotes = JSON.parse(data.budNotes);
@@ -4403,6 +4426,8 @@ async function fbLoadData(){
       if(data.creditos) creditos = JSON.parse(data.creditos);
       if(data.currencyConfig) currencyConfig = JSON.parse(data.currencyConfig);
       if(data.pagosChecked) pagosChecked = JSON.parse(data.pagosChecked);
+      // Sincronizar timestamp local
+      try{localStorage.setItem('fin_local_ts', data.updatedAt);}catch(e){}
       return true;
     }
     return false;
@@ -4415,6 +4440,36 @@ async function fbLoadData(){
 // Autoguardado cada 30 segundos
 setInterval(function(){ if(fbUser) fbSaveData(); }, 30000);
 
+// Sincronizar al reconectar
+window.addEventListener('online', function(){
+  console.log('Conexión restaurada — sincronizando...');
+  if(fbUser){
+    var pending = localStorage.getItem('fin_pending_sync');
+    if(pending === 'true'){
+      console.log('Hay cambios pendientes → subiendo a Firebase');
+      fbLoadData().then(function(){
+        localStorage.removeItem('fin_pending_sync');
+        refreshUI();
+      });
+    }
+  }
+});
+
+window.addEventListener('offline', function(){
+  console.log('Sin conexión — modo offline activado');
+});
+
+function refreshUI(){
+  updateMetrics(); renderRecent();
+  setTimeout(renderCharts, 100);
+  if(document.getElementById('tab-presupuesto').classList.contains('active')) renderAnnualView();
+  if(document.getElementById('tab-pagos').classList.contains('active')) pagosRender();
+  if(document.getElementById('tab-creditos').classList.contains('active')) creditosRender();
+  if(document.getElementById('tab-metas').classList.contains('active')) renderGoals();
+  renderConfig();
+  updateMobileHero();
+}
+
 // Hook: guardar cuando cambian datos importantes
 var _origSaveTx = typeof saveTransactions !== 'undefined' ? saveTransactions : null;
 
@@ -4424,29 +4479,20 @@ window.onFirebaseAuthChange = async function(user){
     document.getElementById('login-screen').style.display = 'none';
     fbRenderUserChip(user);
 
-    // Intentar cargar datos de Firebase
+    // Cargar datos con comparación de timestamps
     var loaded = await fbLoadData();
 
     if(!loaded){
-      // Primera vez: migrar datos del localStorage si existen
+      // No hay datos en Firebase → primera vez, subir localStorage si existe
       var hasLocal = localStorage.getItem('fin_tx') || localStorage.getItem('fin_bstruct');
       if(hasLocal){
-        // Los datos ya están en memoria (cargados al inicio desde localStorage)
-        // Solo los subimos a Firebase
         await fbSaveData();
-        console.log('Datos locales migrados a Firebase correctamente');
+        console.log('Primera vez: datos locales subidos a Firebase');
       }
     }
 
     // Refrescar toda la UI
-    updateMetrics(); renderRecent();
-    setTimeout(renderCharts, 100);
-    if(document.getElementById('tab-presupuesto').classList.contains('active')) renderAnnualView();
-    if(document.getElementById('tab-pagos').classList.contains('active')) pagosRender();
-    if(document.getElementById('tab-creditos').classList.contains('active')) creditosRender();
-    if(document.getElementById('tab-metas').classList.contains('active')) renderGoals();
-    renderConfig();
-    updateMobileHero();
+    refreshUI();
 
   } else {
     fbUser = null;
