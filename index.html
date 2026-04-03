@@ -2985,6 +2985,62 @@ function addSubCatInline(catId){
   renderAnnualView();
 }
 
+
+var subDragCatId=null;
+var subDragSubId=null;
+var subDragOverSubId=null;
+
+function subDragStart(e, catId, subId){
+  subDragCatId=catId; subDragSubId=subId;
+  e.dataTransfer.effectAllowed='move';
+  e.dataTransfer.setData('text/plain', subId);
+  setTimeout(function(){
+    var row=document.getElementById('subrow_'+catId+'_'+subId);
+    if(row) row.style.opacity='0.35';
+  },0);
+}
+
+function subDragOver(e, catId, subId){
+  e.preventDefault();
+  if(catId!==subDragCatId) return; // solo dentro de la misma categoría
+  e.dataTransfer.dropEffect='move';
+  if(subId===subDragOverSubId||subId===subDragSubId) return;
+  if(subDragOverSubId){
+    var prev=document.getElementById('subrow_'+catId+'_'+subDragOverSubId);
+    if(prev) prev.style.boxShadow='';
+  }
+  subDragOverSubId=subId;
+  var row=document.getElementById('subrow_'+catId+'_'+subId);
+  if(row) row.style.boxShadow='inset 0 2px 0 #378ADD';
+}
+
+function subDrop(e, toCatId, toSubId){
+  e.preventDefault();
+  if(!subDragSubId||subDragSubId===toSubId||subDragCatId!==toCatId) return;
+  var cat=budStruct.find(function(c){ return c.id===toCatId; });
+  if(!cat) return;
+  var fromIdx=cat.subs.findIndex(function(s){ return s.id===subDragSubId; });
+  var toIdx=cat.subs.findIndex(function(s){ return s.id===toSubId; });
+  if(fromIdx===-1||toIdx===-1) return;
+  var moved=cat.subs.splice(fromIdx,1)[0];
+  cat.subs.splice(toIdx,0,moved);
+  saveBudStruct();
+  subDragCatId=null; subDragSubId=null; subDragOverSubId=null;
+  renderAnnualView();
+}
+
+function subDragEnd(){
+  if(subDragCatId && subDragSubId){
+    var row=document.getElementById('subrow_'+subDragCatId+'_'+subDragSubId);
+    if(row) row.style.opacity='';
+  }
+  if(subDragCatId && subDragOverSubId){
+    var row=document.getElementById('subrow_'+subDragCatId+'_'+subDragOverSubId);
+    if(row) row.style.boxShadow='';
+  }
+  subDragCatId=null; subDragSubId=null; subDragOverSubId=null;
+}
+
 function tableDragStart(e, catId){
   tableDragId=catId;
   e.dataTransfer.effectAllowed='move';
