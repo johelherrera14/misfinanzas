@@ -694,6 +694,8 @@
   #user-chip-wrap { position: relative; }
 
 </style>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+<script src="https://apis.google.com/js/api.js" async defer></script>
 </head>
 <body>
 
@@ -1123,6 +1125,18 @@
   <!-- CONFIGURACIÓN -->
   <div id="tab-config" class="section">
 
+    <!-- GOOGLE DRIVE BACKUP -->
+    <div class="card">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
+        <div class="card-title" style="margin-bottom:0">Backup en Google Drive</div>
+        <button onclick="driveBackupNow()" id="btn-drive-backup" class="btn-primary" style="width:auto;padding:7px 16px;margin-top:0;font-size:13px">↑ Hacer backup</button>
+      </div>
+      <p style="font-size:13px;color:var(--text2);margin-bottom:1rem">Guarda una copia de seguridad en tu Google Drive. Se conservan los últimos 5 backups.</p>
+      <div id="drive-status" style="margin-bottom:0.75rem"></div>
+      <div id="drive-backups-list"></div>
+      <p style="font-size:11px;color:var(--text3);margin-top:10px">Los archivos se guardan como <code>misfinanzas_backup_FECHA.json</code> en tu Drive.</p>
+    </div>
+
     <div class="card" style="padding:0;overflow:hidden">
       <!-- Cabecera desplegable -->
       <div onclick="currencyToggle()" style="display:flex;align-items:center;justify-content:space-between;padding:1rem 1.25rem;cursor:pointer;user-select:none" onmouseover="this.style.background='var(--bg2)'" onmouseout="this.style.background=''">
@@ -1445,7 +1459,7 @@ function showTab(t,btn){
   if(t==='presupuesto'){renderBudgetAnnual();}
   if(t==='metas'){renderGoals();}
   if(t==='creditos'){creditosRender();}
-  if(t==='config'){renderConfig();}
+  if(t==='config'){renderConfig();driveLoadBackupsList();}
 }
 
 function setType(t){
@@ -5244,6 +5258,220 @@ if(window._fbPendingRedirect){
   });
 }
 
+// ── GOOGLE DRIVE BACKUP ──────────────────────────────────────────────────────
+var DRIVE_CLIENT_ID='601146891770-tgiicfaff2uggnrpdvfrpc2kuiq2ehbe.apps.googleusercontent.com';
+var DRIVE_SCOPES='https://www.googleapis.com/auth/drive.file';
+var DRIVE_PREFIX='misfinanzas_backup_';
+var DRIVE_MAX_BACKUPS=5;
+var DRIVE_LAST_BACKUP_KEY='fin_drive_last_backup';
+var driveReady=false;
+var driveTokenClient=null;
+var driveGapiReady=false;
+var drivePendingAction=null;
+
+function driveInit(){
+  if(typeof google==='undefined'||typeof gapi==='undefined'){
+    setTimeout(driveInit,500);return;
+  }
+  gapi.load('client',function(){
+    gapi.client.init({}).then(function(){
+      driveGapiReady=true;
+      driveReady=true;
+    });
+  });
+  driveTokenClient=google.accounts.oauth2.initTokenClient({
+    client_id:DRIVE_CLIENT_ID,
+    scope:DRIVE_SCOPES,
+    callback:function(resp){
+      if(resp.error){driveShowStatus('Error al conectar con Google: '+resp.error,'#D85A30');return;}
+      if(drivePendingAction){
+        var action=drivePendingAction;
+        drivePendingAction=null;
+        action();
+      }
+    }
+  });
+  // Verificar recordatorio mensual
+  driveCheckReminder();
+}
+
+function driveEnsureAuth(callback){
+  if(gapi.client.getToken()){callback();return;}
+  drivePendingAction=callback;
+  driveTokenClient.requestAccessToken({prompt:''});
+}
+
+function driveGetAllData(){
+  return JSON.stringify({
+    transactions,goals,customCats:typeof customCats!=='undefined'?customCats:[],
+    currency:currencyConfig,budStruct,budValues,budNotes,
+    monthBudgets:typeof monthBudgets!=='undefined'?monthBudgets:{},
+    pagosChecked,pagosSpent:typeof pagosSpent!=='undefined'?pagosSpent:{},creditos
+  },null,2);
+}
+
+function driveShowStatus(msg,color){
+  var el=document.getElementById('drive-status');
+  if(!el)return;
+  el.innerHTML='<span style="font-size:13px;color:'+(color||'var(--text2)')+'">'+msg+'</span>';
+}
+
+function driveFormatDate(isoStr){
+  var d=new Date(isoStr);
+  return d.toLocaleString('es-ES',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});
+}
+
+function driveRenderBackupsList(files){
+  var el=document.getElementById('drive-backups-list');
+  if(!el)return;
+  if(!files||files.length===0){
+    el.innerHTML='<p style="font-size:13px;color:var(--text3);margin:0">No hay backups guardados todavía.</p>';
+    return;
+  }
+  var html='<div style="display:flex;flex-direction:column;gap:6px">';
+  files.forEach(function(f,i){
+    var label=i===0?'<span style="font-size:11px;background:var(--accent);color:#fff;padding:2px 7px;border-radius:4px;margin-left:6px">más reciente</span>':'';
+    html+='<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 10px;background:var(--bg2);border-radius:8px">'
+      +'<div>'
+      +'<span style="font-size:13px;font-weight:500;color:var(--text)">'+driveFormatDate(f.modifiedTime)+'</span>'
+      +label
+      +'</div>'
+      +'<button onclick="driveRestoreBackup(\''+f.id+'\',\''+driveFormatDate(f.modifiedTime)+'\')" class="btn-sm" style="font-size:12px;color:var(--accent)">↓ Restaurar</button>'
+      +'</div>';
+  });
+  html+='</div>';
+  el.innerHTML=html;
+}
+
+function driveListBackups(callback){
+  driveShowStatus('Consultando backups...','var(--text3)');
+  gapi.client.request({
+    path:'https://www.googleapis.com/drive/v3/files',
+    method:'GET',
+    params:{
+      q:'name contains "'+DRIVE_PREFIX+'" and trashed=false',
+      fields:'files(id,name,modifiedTime)',
+      orderBy:'modifiedTime desc',
+      spaces:'drive'
+    }
+  }).then(function(resp){
+    var files=resp.result.files||[];
+    driveShowStatus('','');
+    if(callback)callback(files);
+  }).catch(function(){
+    driveShowStatus('Error al consultar Drive.','#D85A30');
+  });
+}
+
+function driveBackupNow(){
+  if(!driveReady){driveShowStatus('Cargando API de Google, espera un momento...','var(--text3)');return;}
+  driveEnsureAuth(function(){
+    driveShowStatus('Preparando backup...','var(--text3)');
+    driveListBackups(function(files){
+      // Crear nuevo archivo
+      var now=new Date();
+      var pad=function(n){return n.toString().padStart(2,'0');};
+      var ts=now.getFullYear()+'-'+pad(now.getMonth()+1)+'-'+pad(now.getDate())+'_'+pad(now.getHours())+'-'+pad(now.getMinutes());
+      var fileName=DRIVE_PREFIX+ts+'.json';
+      var content=driveGetAllData();
+      var boundary='nexo_backup_boundary';
+      var body='--'+boundary+'\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n'
+        +JSON.stringify({name:fileName,mimeType:'application/json'})
+        +'\r\n--'+boundary+'\r\nContent-Type: application/json\r\n\r\n'
+        +content+'\r\n--'+boundary+'--';
+      driveShowStatus('Subiendo backup...','var(--text3)');
+      gapi.client.request({
+        path:'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart',
+        method:'POST',
+        headers:{'Content-Type':'multipart/related; boundary='+boundary},
+        body:body
+      }).then(function(){
+        // Guardar timestamp del último backup
+        localStorage.setItem(DRIVE_LAST_BACKUP_KEY,new Date().toISOString());
+        // Borrar excedentes (mantener solo DRIVE_MAX_BACKUPS)
+        if(files.length>=DRIVE_MAX_BACKUPS){
+          var toDelete=files.slice(DRIVE_MAX_BACKUPS-1);
+          toDelete.forEach(function(f){
+            gapi.client.request({
+              path:'https://www.googleapis.com/drive/v3/files/'+f.id,
+              method:'DELETE'
+            });
+          });
+        }
+        driveShowStatus('✓ Backup guardado correctamente ('+new Date().toLocaleString('es-ES',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'})+')','#1D9E75');
+        // Refrescar lista
+        driveListBackups(driveRenderBackupsList);
+      }).catch(function(e){
+        driveShowStatus('Error al guardar el backup.','#D85A30');
+        console.error(e);
+      });
+    });
+  });
+}
+
+function driveRestoreBackup(fileId,dateLabel){
+  if(!confirm('¿Restaurar el backup del '+dateLabel+'?\n\nEsto reemplazará todos tus datos actuales.'))return;
+  driveEnsureAuth(function(){
+    driveShowStatus('Descargando backup...','var(--text3)');
+    gapi.client.request({
+      path:'https://www.googleapis.com/drive/v3/files/'+fileId+'?alt=media',
+      method:'GET'
+    }).then(function(resp){
+      try{
+        var raw=typeof resp.body==='string'?resp.body:JSON.stringify(resp.result);
+        var d=JSON.parse(raw);
+        if(d.transactions) transactions=d.transactions;
+        if(d.goals) goals=d.goals;
+        if(d.customCats) customCats=d.customCats;
+        if(d.currency) currencyConfig=d.currency;
+        if(d.budStruct) budStruct=d.budStruct;
+        if(d.budValues) budValues=d.budValues;
+        if(d.budNotes) budNotes=d.budNotes;
+        if(d.monthBudgets) monthBudgets=d.monthBudgets;
+        if(d.pagosChecked) pagosChecked=d.pagosChecked;
+        if(d.pagosSpent) pagosSpent=d.pagosSpent;
+        if(d.creditos) creditos=d.creditos;
+        // Persistir en localStorage y Firebase
+        saveTx();saveGoals();saveBudStruct();saveBudValues();pagosSave();
+        save('fin_currency',currencyConfig);
+        if(typeof fbSaveData==='function') fbSaveData();
+        // Refrescar UI
+        updateMetrics();renderRecent();initMobileNav();updateMobileHero();
+        setTimeout(renderCharts,100);
+        renderConfig();
+        driveShowStatus('✓ Datos restaurados correctamente desde el backup del '+dateLabel,'#1D9E75');
+      }catch(e){
+        driveShowStatus('Error al procesar el backup.','#D85A30');
+      }
+    }).catch(function(){
+      driveShowStatus('Error al descargar el backup.','#D85A30');
+    });
+  });
+}
+
+function driveLoadBackupsList(){
+  if(!driveReady){
+    document.getElementById('drive-backups-list').innerHTML='<p style="font-size:13px;color:var(--text3);margin:0">Cargando API de Google...</p>';
+    setTimeout(driveLoadBackupsList,800);return;
+  }
+  driveEnsureAuth(function(){
+    driveListBackups(driveRenderBackupsList);
+  });
+}
+
+function driveCheckReminder(){
+  var last=localStorage.getItem(DRIVE_LAST_BACKUP_KEY);
+  if(!last)return;
+  var daysSince=Math.floor((Date.now()-new Date(last).getTime())/(1000*60*60*24));
+  if(daysSince>=30){
+    setTimeout(function(){
+      driveShowStatus('⚠ Han pasado '+daysSince+' días desde tu último backup. ¡Recomendamos hacer uno!','#EF9F27');
+    },2000);
+  }
+}
+
+// ── FIN GOOGLE DRIVE BACKUP ──────────────────────────────────────────────────
+
 document.getElementById('struct-type').addEventListener('change',function(){
   document.getElementById('struct-parent-row').style.display=this.value==='sub'?'':'none';
 });
@@ -5253,6 +5481,7 @@ document.getElementById('inp-date').value=new Date().toISOString().split('T')[0]
 fillCatFromBudget('ingreso');
 updateMetrics();renderRecent();initMobileNav();updateMobileHero();
 setTimeout(renderCharts,100);
+setTimeout(driveInit,1000);
 document.addEventListener('keydown',function(e){if(e.key==='Escape'){closeEditModal();pagosCloseSpentModal();credCloseEdit();}});
 </script>
 <div id="bud-tooltip" style="display:none;position:fixed;z-index:500;background:var(--text);color:var(--bg);font-size:12px;padding:6px 10px;border-radius:6px;max-width:220px;line-height:1.4;pointer-events:none;box-shadow:0 4px 12px rgba(0,0,0,.2)"></div>
