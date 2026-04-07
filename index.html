@@ -5630,18 +5630,22 @@ function asisInicio(){
 
   var year = new Date().getFullYear();
 
-  var systemPrompt = 'Eres el asistente de presupuesto de nexo.ai. '
-    + 'Tu objetivo es ayudar al usuario a rellenar su presupuesto mensual de forma conversacional. '
-    + 'Haz UNA pregunta por vez, por cada categoria. Se breve y directo. '
-    + 'Categorias disponibles: ' + bsResumen + '. '
-    + 'Cuando tengas todos los datos, responde EXACTAMENTE con: RESUMEN_LISTO seguido de un objeto JSON en esta linea: {"budValues":{"catId|subId":importe}} '
+  var systemPrompt = 'Eres Ana, la asistente financiera personal de nexo.ai. '
+    + 'Eres cercana, simpática y directa. Usas emojis de forma natural, sin exagerar. '
+    + 'Tu objetivo es ayudar a ' + (window.fbUser && window.fbUser.displayName ? window.fbUser.displayName.split(' ')[0] : 'el usuario') + ' a rellenar su presupuesto mensual. '
+    + 'Haz UNA pregunta por vez, en orden. Se breve, natural y amigable — como si fueras una amiga que entiende de finanzas. '
+    + 'No uses lenguaje de formulario. Habla con naturalidad en español. '
+    + 'Cuando el usuario diga un importe, confirma brevemente con algo natural ("perfecto!", "anotado!", "genial!") y pasa a la siguiente categoria sin demora. '
+    + 'Categorias a cubrir en orden: ' + bsResumen + '. '
+    + 'Cuando hayas preguntado TODAS las categorias, responde EXACTAMENTE con: RESUMEN_LISTO seguido de un objeto JSON en esta linea: {"budValues":{"catId|subId":importe}} '
     + 'Usa los IDs exactos: ' + bsIds + '. '
     + 'Los importes son mensuales en euros. El JSON debe cubrir el anio ' + year + '. '
-    + 'No incluyas nada despues del JSON. No uses markdown.';
+    + 'No incluyas nada despues del JSON. No uses markdown ni bloques de codigo.';
 
   asisHistory.push({ role: 'system', content: systemPrompt });
 
-  var welcome = 'Hola! Voy a ayudarte a configurar tu presupuesto mensual. Sere rapido: una pregunta por categoria. Empecemos: cuanto cobras de sueldo neto al mes?';
+  var userName = (window.fbUser && window.fbUser.displayName) ? window.fbUser.displayName.split(' ')[0] : '';
+  var welcome = 'Hola' + (userName ? ' ' + userName : '') + '! 👋 Soy Ana, tu asistente financiera en nexo.ai.\n\nEstoy aquí para ayudarte a construir tu presupuesto mensual de forma rápida y sencilla. Te haré preguntas sobre tus ingresos y gastos, una por una, y al final aplicamos todo directamente a tu nexo.ai. 🎯\n\nNo hace falta que los números sean exactos — una buena estimación es suficiente para empezar. ¡Vamos! 💪\n\n¿Cuánto cobras de sueldo neto al mes?';
   asisHistory.push({ role: 'assistant', content: welcome });
   asisAddMsg('assistant', welcome);
   asisSetInputEnabled(true);
