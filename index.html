@@ -1129,11 +1129,25 @@
     <div class="card">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
         <div class="card-title" style="margin-bottom:0">Backup en Google Drive</div>
-        <button onclick="driveBackupNow()" id="btn-drive-backup" class="btn-primary" style="width:auto;padding:7px 16px;margin-top:0;font-size:13px">↑ Hacer backup</button>
+        <div style="display:flex;gap:8px;align-items:center">
+          <button onclick="driveRefreshList()" class="btn-sm" style="font-size:12px;padding:6px 12px">↻ Ver backups</button>
+          <button onclick="driveBackupNow()" id="btn-drive-backup" class="btn-primary" style="width:auto;padding:7px 16px;margin-top:0;font-size:13px">↑ Hacer backup</button>
+        </div>
       </div>
       <p style="font-size:13px;color:var(--text2);margin-bottom:1rem">Guarda una copia de seguridad en tu Google Drive. Se conservan los últimos 5 backups.</p>
       <div id="drive-status" style="margin-bottom:0.75rem"></div>
       <div id="drive-backups-list"></div>
+      <div style="margin-top:14px;padding-top:14px;border-top:1px solid var(--border)">
+        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
+          <div>
+            <div style="font-size:13px;font-weight:500;color:var(--text);margin-bottom:2px">Restaurar desde archivo</div>
+            <div style="font-size:12px;color:var(--text2)">Sube un archivo .json de backup guardado en tu dispositivo</div>
+          </div>
+          <button onclick="document.getElementById('drive-restore-file-input').click()" class="btn-sm" style="font-size:12px;padding:6px 12px;color:var(--accent);border-color:var(--accent)">↑ Subir .json</button>
+          <input type="file" id="drive-restore-file-input" accept=".json" style="display:none" onchange="driveRestoreFromFile(this)">
+        </div>
+        <div id="drive-restore-file-status" style="margin-top:8px;font-size:13px"></div>
+      </div>
       <p style="font-size:11px;color:var(--text3);margin-top:10px">Los archivos se guardan como <code>misfinanzas_backup_FECHA.json</code> en tu Drive.</p>
     </div>
 
@@ -5483,6 +5497,57 @@ function driveLoadBackupsList(){
   } else {
     el.innerHTML='<p style="font-size:13px;color:var(--text3);margin:0">Haz clic en "↑ Hacer backup" para conectar con Google Drive.</p>';
   }
+}
+
+function driveRefreshList(){
+  if(!driveReady){driveShowStatus('Cargando API de Google, espera...','var(--text3)');return;}
+  driveEnsureAuth(function(){
+    driveListBackups(driveRenderBackupsList);
+  });
+}
+
+function driveRestoreFromFile(input){
+  var file=input.files[0];
+  if(!file)return;
+  var statusEl=document.getElementById('drive-restore-file-status');
+  statusEl.innerHTML='<span style="color:var(--text2)">Leyendo archivo...</span>';
+  var reader=new FileReader();
+  reader.onload=function(e){
+    try{
+      var d=JSON.parse(e.target.result);
+      if(!d.transactions&&!d.budStruct&&!d.budValues){
+        statusEl.innerHTML='<span style="color:#D85A30">El archivo no parece un backup válido de nexo.ai.</span>';
+        return;
+      }
+      if(!confirm('¿Restaurar datos desde "'+file.name+'"?\n\nEsto reemplazará todos tus datos actuales.')){
+        statusEl.innerHTML='';
+        input.value='';
+        return;
+      }
+      if(d.transactions) transactions=d.transactions;
+      if(d.goals) goals=d.goals;
+      if(d.customCats) customCats=d.customCats;
+      if(d.currency) currencyConfig=d.currency;
+      if(d.budStruct) budStruct=d.budStruct;
+      if(d.budValues) budValues=d.budValues;
+      if(d.budNotes) budNotes=d.budNotes;
+      if(d.monthBudgets) monthBudgets=d.monthBudgets;
+      if(d.pagosChecked) pagosChecked=d.pagosChecked;
+      if(d.pagosSpent) pagosSpent=d.pagosSpent;
+      if(d.creditos) creditos=d.creditos;
+      saveTx();saveGoals();saveBudStruct();saveBudValues();pagosSave();
+      save('fin_currency',currencyConfig);
+      if(typeof fbSaveData==='function') fbSaveData();
+      updateMetrics();renderRecent();initMobileNav();updateMobileHero();
+      setTimeout(renderCharts,100);
+      renderConfig();
+      statusEl.innerHTML='<span style="color:#1D9E75">✓ Datos restaurados correctamente desde '+file.name+'</span>';
+      input.value='';
+    }catch(err){
+      statusEl.innerHTML='<span style="color:#D85A30">Error al leer el archivo. Asegúrate de que es un JSON válido.</span>';
+    }
+  };
+  reader.readAsText(file);
 }
 
 function driveCheckReminder(){
