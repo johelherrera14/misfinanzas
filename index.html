@@ -5649,8 +5649,13 @@ function asisInicio(){
       + 'Si dice "solo en verano" → meses 5,6,7. Si dice "solo en invierno" → meses 11,0,1. '
       + 'Si dice "solo en primavera" → meses 2,3,4. Si dice "solo en otoño" → meses 8,9,10. '
       + 'Si dice nombres de meses especificos → usa sus indices (enero=0...diciembre=11). '
-      + 'Cuando tengas claro que subcategoria actualizar y el importe, responde EXACTAMENTE con: RESUMEN_LISTO seguido de: '
+      + 'FLUJO IMPORTANTE: '
+      + 'Despues de confirmar cada gasto con el usuario, pregunta siempre: "¿Hay algo más que quieras actualizar? 😊" '
+      + 'Sigue recogiendo cambios uno a uno, acumulandolos todos en memoria. '
+      + 'Solo cuando el usuario diga que no hay mas cambios (no, listo, eso es todo, nada mas, ya esta) → genera el RESUMEN_LISTO con TODOS los cambios acumulados juntos en un solo JSON. '
+      + 'Responde EXACTAMENTE con: RESUMEN_LISTO seguido de: '
       + '{"budValues":{"catId|subId":{"val":importe,"meses":[0,1,2,...]}}} '
+      + 'Incluye TODOS los cambios recogidos durante la conversacion en el mismo JSON. '
       + 'Usa los IDs exactos de la estructura. No uses markdown. No incluyas nada despues del JSON. '
       + 'Si el usuario pide algo que no existe como subcategoria, dile con que subcategoria existente lo podrias registrar y pregunta si esta bien.';
 
@@ -5751,11 +5756,13 @@ function asisProcessarFinal(reply){
     budStruct.forEach(function(cat){
       cat.subs.forEach(function(sub){
         var key = cat.id + '|' + sub.id;
-        var val = newValues[key];
-        if(val && val > 0){
-          lines.push(sub.name + ': <b>' + val + ' e</b>');
-          if(cat.type === 'income') totIngreso += val; else totGasto += val;
-        }
+        var entry = newValues[key];
+        if(entry === undefined || entry === null) return;
+        var val = (typeof entry === 'object') ? entry.val : entry;
+        if(!val || val <= 0) return;
+        var mesesLabel = (typeof entry === 'object' && entry.meses && entry.meses.length < 12) ? ' (' + entry.meses.length + ' meses)' : '';
+        lines.push(sub.name + ': <b>' + val + ' €</b>' + mesesLabel);
+        if(cat.type === 'income') totIngreso += val; else totGasto += val;
       });
     });
     var ahorro = totIngreso - totGasto;
