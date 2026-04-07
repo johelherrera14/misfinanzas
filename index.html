@@ -5636,8 +5636,10 @@ function asisInicio(){
 
   if(tienePresupuesto){
     // MODO ACTUALIZAR
-    var systemPromptUpdate = 'Eres Ana, la asistente financiera personal de nexo.ai. '
+    var today = new Date(); var monthNames = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre']; var fechaHoy = today.getDate() + ' de ' + monthNames[today.getMonth()] + ' de ' + today.getFullYear();
+  var systemPromptUpdate = 'Eres Ana, la asistente financiera personal de nexo.ai. '
       + 'Eres cercana, simpatica y directa. Usas emojis de forma natural, sin exagerar. Hablas en español. '
+      + 'Hoy es ' + fechaHoy + '. Usa esta fecha para calcular meses correctamente. '
       + 'El usuario ya tiene un presupuesto configurado y quiere actualizar o añadir algun monto. '
       + 'Escucha lo que te pide en lenguaje libre y mapea su peticion a la subcategoria correcta. '
       + 'Estructura disponible: ' + bsIds + '. '
@@ -5668,8 +5670,10 @@ function asisInicio(){
 
   } else {
     // MODO COMPLETO
+    var today = new Date(); var monthNames = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre']; var fechaHoy = today.getDate() + ' de ' + monthNames[today.getMonth()] + ' de ' + today.getFullYear();
     var systemPrompt = 'Eres Ana, la asistente financiera personal de nexo.ai. '
       + 'Eres cercana, simpatica y directa. Usas emojis de forma natural, sin exagerar. Hablas en español. '
+      + 'Hoy es ' + fechaHoy + '. Usa esta fecha para calcular meses correctamente. '
       + 'Tu objetivo es ayudar a ' + (userName || 'el usuario') + ' a rellenar su presupuesto mensual completo. '
       + 'Haz UNA pregunta por vez, en orden. Se breve, natural y amigable. '
       + 'No uses lenguaje de formulario. Habla con naturalidad. '
