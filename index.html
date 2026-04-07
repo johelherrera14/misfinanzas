@@ -5663,15 +5663,16 @@ function asisPreguntarClaude(){
   var messages = asisHistory.filter(function(m){ return m.role !== 'system'; });
   var system = asisHistory.find(function(m){ return m.role === 'system'; });
 
-  fetch('https://api.anthropic.com/v1/messages', {
+  var payload = {
+    model: 'claude-sonnet-4-20250514',
+    max_tokens: 1500,
+    system: system ? system.content : '',
+    messages: messages
+  };
+  fetch('https://nexo-proxy.johelherrera14.workers.dev', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      model: 'claude-sonnet-4-20250514',
-      max_tokens: 1500,
-      system: system ? system.content : '',
-      messages: messages
-    })
+    body: JSON.stringify(payload)
   }).then(function(r){ return r.json(); }).then(function(data){
     asisShowTyping(false);
     var reply = (data.content && data.content[0] && data.content[0].text) ? data.content[0].text : 'Error al conectar.';
