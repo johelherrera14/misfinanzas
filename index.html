@@ -899,6 +899,7 @@
         <button onclick="changeYear(1)" style="background:none;border:0.5px solid var(--border2);border-radius:var(--radius);width:30px;height:30px;cursor:pointer;font-size:16px;color:var(--text2);display:flex;align-items:center;justify-content:center">›</button>
       </div>
       <div style="display:flex;gap:8px">
+        <button onclick="abrirAsistente()" class="btn-sm" style="font-size:12px;padding:5px 14px;background:var(--accent);color:#fff;border-color:var(--accent)">✦ Asistente IA</button>
         <button onclick="openBudStructModal()" class="btn-sm" style="font-size:12px;padding:5px 14px">+ Gestionar estructura</button>
         <button onclick="budToggleAll()" class="btn-sm" id="btn-bud-toggle-all" style="font-size:12px;padding:5px 14px">Expandir todo</button>
         <button onclick="budLimpiarValores()" class="btn-sm" style="font-size:12px;padding:5px 14px;color:var(--red)">Limpiar valores</button>
@@ -5574,7 +5575,230 @@ updateMetrics();renderRecent();initMobileNav();updateMobileHero();
 setTimeout(renderCharts,100);
 setTimeout(driveInit,1000);
 document.addEventListener('keydown',function(e){if(e.key==='Escape'){closeEditModal();pagosCloseSpentModal();credCloseEdit();}});
+
+// ── ASISTENTE IA DE PRESUPUESTO ──────────────────────────────────────────────
+
+var asisHistory = [];
+var asisApplying = false;
+
+function abrirAsistente(){
+  document.getElementById('asistente-overlay').classList.add('open');
+  if(asisHistory.length === 0) asisInicio();
+}
+
+function cerrarAsistente(){
+  document.getElementById('asistente-overlay').classList.remove('open');
+}
+
+function asisMsgHTML(role, text){
+  var isAI = role === 'assistant';
+  var safeText = text.split('\n').join('<br>');
+  var br = 'border-radius:';
+  var bubble = '<div style="max-width:85%;padding:10px 14px;' + br + (isAI ? '4px 14px 14px 14px' : '14px 4px 14px 14px') + ';font-size:13.5px;line-height:1.6;background:' + (isAI ? 'var(--bg2)' : 'var(--accent)') + ';color:' + (isAI ? 'var(--text)' : '#fff') + '">' + safeText + '</div>';
+  var avatar = '<div style="width:26px;height:26px;border-radius:50%;flex-shrink:0;background:' + (isAI ? 'var(--accent)' : 'var(--bg3)') + ';display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:' + (isAI ? '#fff' : 'var(--text2)') + ';">' + (isAI ? 'nx' : 'tu') + '</div>';
+  var dir = isAI ? '' : 'flex-direction:row-reverse;';
+  return '<div style="display:flex;gap:8px;align-items:flex-end;' + dir + '">' + avatar + bubble + '</div>';
+}
+
+function asisAddMsg(role, text){
+  var msgs = document.getElementById('asistente-msgs');
+  msgs.insertAdjacentHTML('beforeend', asisMsgHTML(role, text));
+  msgs.scrollTop = msgs.scrollHeight;
+}
+
+function asisSetInputEnabled(enabled){
+  document.getElementById('asistente-input').disabled = !enabled;
+  document.getElementById('asistente-send').disabled = !enabled;
+  document.getElementById('asistente-send').style.opacity = enabled ? '1' : '0.5';
+  if(enabled) setTimeout(function(){ document.getElementById('asistente-input').focus(); }, 100);
+}
+
+function asisShowTyping(show){
+  document.getElementById('asistente-typing').style.display = show ? 'block' : 'none';
+  document.getElementById('asistente-msgs').scrollTop = document.getElementById('asistente-msgs').scrollHeight;
+}
+
+function asisInicio(){
+  asisHistory = [];
+  var bsResumen = budStruct.map(function(cat){
+    return cat.name + ' (' + cat.type + '): ' + cat.subs.map(function(s){ return s.name; }).join(', ');
+  }).join('; ');
+
+  var bsIds = budStruct.map(function(cat){
+    return cat.id + '(' + cat.name + '): ' + cat.subs.map(function(s){ return s.id + '=' + s.name; }).join(', ');
+  }).join('; ');
+
+  var year = new Date().getFullYear();
+
+  var systemPrompt = 'Eres el asistente de presupuesto de nexo.ai. '
+    + 'Tu objetivo es ayudar al usuario a rellenar su presupuesto mensual de forma conversacional. '
+    + 'Haz UNA pregunta por vez, por cada categoria. Se breve y directo. '
+    + 'Categorias disponibles: ' + bsResumen + '. '
+    + 'Cuando tengas todos los datos, responde EXACTAMENTE con: RESUMEN_LISTO seguido de un objeto JSON en esta linea: {"budValues":{"catId|subId":importe}} '
+    + 'Usa los IDs exactos: ' + bsIds + '. '
+    + 'Los importes son mensuales en euros. El JSON debe cubrir el anio ' + year + '. '
+    + 'No incluyas nada despues del JSON. No uses markdown.';
+
+  asisHistory.push({ role: 'system', content: systemPrompt });
+
+  var welcome = 'Hola! Voy a ayudarte a configurar tu presupuesto mensual. Sere rapido: una pregunta por categoria. Empecemos: cuanto cobras de sueldo neto al mes?';
+  asisHistory.push({ role: 'assistant', content: welcome });
+  asisAddMsg('assistant', welcome);
+  asisSetInputEnabled(true);
+}
+
+function asisEnviar(){
+  var input = document.getElementById('asistente-input');
+  var text = input.value.trim();
+  if(!text || asisApplying) return;
+  input.value = '';
+  asisAddMsg('user', text);
+  asisHistory.push({ role: 'user', content: text });
+  asisSetInputEnabled(false);
+  asisShowTyping(true);
+  asisPreguntarClaude();
+}
+
+function asisPreguntarClaude(){
+  var messages = asisHistory.filter(function(m){ return m.role !== 'system'; });
+  var system = asisHistory.find(function(m){ return m.role === 'system'; });
+
+  fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      model: 'claude-sonnet-4-20250514',
+      max_tokens: 1500,
+      system: system ? system.content : '',
+      messages: messages
+    })
+  }).then(function(r){ return r.json(); }).then(function(data){
+    asisShowTyping(false);
+    var reply = (data.content && data.content[0] && data.content[0].text) ? data.content[0].text : 'Error al conectar.';
+    asisHistory.push({ role: 'assistant', content: reply });
+    if(reply.indexOf('RESUMEN_LISTO') !== -1){
+      asisProcessarFinal(reply);
+    } else {
+      asisAddMsg('assistant', reply);
+      asisSetInputEnabled(true);
+    }
+  }).catch(function(e){
+    asisShowTyping(false);
+    asisAddMsg('assistant', 'Error de conexion. Intentalo de nuevo.');
+    console.error('Asistente error:', e);
+    asisSetInputEnabled(true);
+  });
+}
+
+function asisProcessarFinal(reply){
+  try{
+    var jsonStart = reply.indexOf('{');
+    var jsonStr = reply.substring(jsonStart);
+    var parsed = JSON.parse(jsonStr);
+    var newValues = parsed.budValues;
+    var totIngreso = 0, totGasto = 0;
+    var lines = [];
+    budStruct.forEach(function(cat){
+      cat.subs.forEach(function(sub){
+        var key = cat.id + '|' + sub.id;
+        var val = newValues[key];
+        if(val && val > 0){
+          lines.push(sub.name + ': <b>' + val + ' e</b>');
+          if(cat.type === 'income') totIngreso += val; else totGasto += val;
+        }
+      });
+    });
+    var ahorro = totIngreso - totGasto;
+    var html = '<b>Presupuesto listo:</b><br><br>' + lines.join('<br>');
+    html += '<br><br>Ingresos: <b style="color:#34D399">' + totIngreso + ' e</b>';
+    html += ' &middot; Gastos: <b style="color:#F87171">' + totGasto + ' e</b>';
+    html += '<br>Ahorro: <b style="color:var(--accent)">' + ahorro + ' e</b>';
+    html += '<br><br><button onclick="asisAplicar()" style="background:var(--accent);color:#fff;border:none;border-radius:8px;padding:8px 18px;font-size:13px;cursor:pointer;font-weight:500">Aplicar al presupuesto</button>';
+    html += ' <button onclick="asisReintentar()" style="background:none;border:0.5px solid var(--border2);border-radius:8px;padding:8px 14px;font-size:13px;cursor:pointer;color:var(--text2);margin-left:6px">Repetir</button>';
+    asisAddMsg('assistant', html);
+    window._asisPendingValues = newValues;
+  } catch(e){
+    console.error('asisProcessarFinal error:', e);
+    asisAddMsg('assistant', 'Hubo un error procesando los datos. Intentemoslo de nuevo.');
+    asisSetInputEnabled(true);
+  }
+}
+
+function asisAplicar(){
+  var newValues = window._asisPendingValues;
+  var year = new Date().getFullYear();
+  if(!newValues) return;
+  asisApplying = true;
+  budStruct.forEach(function(cat){
+    cat.subs.forEach(function(sub){
+      var key = cat.id + '|' + sub.id;
+      var val = newValues[key];
+      if(val !== undefined && val >= 0){
+        for(var m = 0; m < 12; m++){ setBudVal(cat.id, sub.id, year, m, val); }
+      }
+    });
+  });
+  saveBudValues();
+  if(typeof fbSaveData === 'function') fbSaveData();
+  renderBudgetAnnual();
+  cerrarAsistente();
+  asisApplying = false;
+  setTimeout(function(){
+    asisHistory = [];
+    document.getElementById('asistente-msgs').innerHTML = '';
+    asisSetInputEnabled(false);
+  }, 500);
+}
+
+function asisReintentar(){
+  asisHistory = [];
+  document.getElementById('asistente-msgs').innerHTML = '';
+  asisSetInputEnabled(false);
+  asisInicio();
+}
+
+// ── FIN ASISTENTE IA ──────────────────────────────────────────────────────────
+
 </script>
 <div id="bud-tooltip" style="display:none;position:fixed;z-index:500;background:var(--text);color:var(--bg);font-size:12px;padding:6px 10px;border-radius:6px;max-width:220px;line-height:1.4;pointer-events:none;box-shadow:0 4px 12px rgba(0,0,0,.2)"></div>
+
+  <!-- ── ASISTENTE IA DE PRESUPUESTO ─────────────────────────────────────── -->
+  <div id="asistente-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:2000;align-items:center;justify-content:center;padding:16px">
+    <div style="background:var(--surface);border-radius:20px;width:100%;max-width:500px;max-height:90vh;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 8px 40px rgba(0,0,0,0.3)">
+      <!-- Header -->
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid var(--border);background:var(--bg)">
+        <div style="display:flex;align-items:center;gap:10px">
+          <div style="width:32px;height:32px;background:var(--accent);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;color:#fff;font-family:'Space Grotesk',sans-serif">nx</div>
+          <div>
+            <div style="font-size:14px;font-weight:600;color:var(--text)">Asistente de presupuesto</div>
+            <div style="font-size:11px;color:var(--text2)">Powered by Claude</div>
+          </div>
+        </div>
+        <button onclick="cerrarAsistente()" style="background:none;border:none;cursor:pointer;color:var(--text2);font-size:20px;line-height:1;padding:4px">×</button>
+      </div>
+      <!-- Messages -->
+      <div id="asistente-msgs" style="flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:12px;min-height:300px;max-height:420px"></div>
+      <!-- Typing indicator -->
+      <div id="asistente-typing" style="display:none;padding:0 16px 8px">
+        <div style="display:inline-flex;gap:4px;padding:8px 12px;background:var(--bg2);border-radius:12px">
+          <span style="width:6px;height:6px;background:var(--accent);border-radius:50%;animation:asisTyping 1.2s infinite;display:block"></span>
+          <span style="width:6px;height:6px;background:var(--accent);border-radius:50%;animation:asisTyping 1.2s .2s infinite;display:block"></span>
+          <span style="width:6px;height:6px;background:var(--accent);border-radius:50%;animation:asisTyping 1.2s .4s infinite;display:block"></span>
+        </div>
+      </div>
+      <!-- Input -->
+      <div style="padding:12px 16px;border-top:1px solid var(--border);display:flex;gap:8px">
+        <input id="asistente-input" type="text" placeholder="Escribe aquí..." style="flex:1;border:0.5px solid var(--border2);border-radius:10px;padding:9px 13px;font-size:13.5px;background:var(--bg);color:var(--text);outline:none" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();asisEnviar()}" disabled>
+        <button id="asistente-send" onclick="asisEnviar()" disabled style="background:var(--accent);border:none;border-radius:10px;width:38px;height:38px;cursor:pointer;display:flex;align-items:center;justify-content:center;opacity:0.5">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M2 8L14 2L8 14L7 9L2 8Z" fill="white"/></svg>
+        </button>
+      </div>
+    </div>
+  </div>
+  <style>
+    @keyframes asisTyping{0%,80%,100%{transform:translateY(0);opacity:.4}40%{transform:translateY(-5px);opacity:1}}
+    #asistente-overlay.open{display:flex!important}
+  </style>
+
 </body>
 </html>
