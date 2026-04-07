@@ -5368,11 +5368,9 @@ function driveListBackups(callback){
     var msg = err && err.result && err.result.error && err.result.error.message ? err.result.error.message : '';
     console.error('Drive error:',err);
     if(status===401||status===403){
-      // Token expirado → limpiar y reintentar con nuevo token
+      // Token expirado → limpiar token, no reintentar automáticamente
       gapi.client.setToken(null);
-      drivePendingAction=function(){ driveListBackups(callback); };
-      driveTokenClient.requestAccessToken({prompt:''});
-      driveShowStatus('Reconectando con Google Drive...','var(--text3)');
+      driveShowStatus('Sesión de Drive expirada. Haz clic en "↑ Hacer backup" para reconectar.','#D85A30');
     } else {
       driveShowStatus('Error al consultar Drive'+(msg?' ('+msg+')':status?' ('+status+')':'.')+'.','#D85A30');
     }
@@ -5466,13 +5464,25 @@ function driveRestoreBackup(fileId,dateLabel){
 }
 
 function driveLoadBackupsList(){
+  var el=document.getElementById('drive-backups-list');
+  if(!el)return;
   if(!driveReady){
-    document.getElementById('drive-backups-list').innerHTML='<p style="font-size:13px;color:var(--text3);margin:0">Cargando API de Google...</p>';
-    setTimeout(driveLoadBackupsList,800);return;
+    el.innerHTML='<p style="font-size:13px;color:var(--text3);margin:0">Cargando API de Google...</p>';
+    var attempts=0;
+    var waitReady=setInterval(function(){
+      attempts++;
+      if(driveReady){clearInterval(waitReady);driveLoadBackupsList();}
+      else if(attempts>20){clearInterval(waitReady);el.innerHTML='<p style="font-size:13px;color:var(--text3);margin:0">No se pudo cargar la API. Recarga la página.</p>';}
+    },500);
+    return;
   }
-  driveEnsureAuth(function(){
+  // Solo mostrar lista si ya hay token activo; no forzar popup automático
+  var token=gapi.client.getToken();
+  if(token&&token.access_token){
     driveListBackups(driveRenderBackupsList);
-  });
+  } else {
+    el.innerHTML='<p style="font-size:13px;color:var(--text3);margin:0">Haz clic en "↑ Hacer backup" para conectar con Google Drive.</p>';
+  }
 }
 
 function driveCheckReminder(){
