@@ -1788,12 +1788,46 @@ function editAhorroReal(y, m, td){
     initial = plan ? parseFloat(plan.toFixed(2)) : '';
   }
 
-  td.innerHTML = '<input type="number" step="0.01" value="' + initial + '" '+
-    'style="width:100%;padding:4px 8px;font-size:13px;font-family:\'Space Grotesk\',sans-serif;'+
-    'text-align:right;border:1px solid var(--accent);border-radius:6px;'+
-    'background:var(--bg);color:var(--text);height:30px;outline:none;box-shadow:0 0 0 3px var(--accent-dim)" '+
-    'onkeydown="ahorroCellKey(event,' + y + ',' + m + ',this)" '+
-    'onblur="ahorroCellBlur(' + y + ',' + m + ',this)">';
+  // Quitar el handler de clic mientras está en modo edición
+  td.removeAttribute('onclick');
+
+  td.innerHTML =
+    '<div style="display:flex;align-items:center;gap:6px;justify-content:flex-end" onclick="event.stopPropagation()">'+
+      '<input type="number" step="0.01" value="' + initial + '" '+
+        'class="ahorro-edit-input" '+
+        'style="flex:1;min-width:0;max-width:120px;padding:4px 8px;font-size:13px;'+
+        'font-family:\'Space Grotesk\',sans-serif;text-align:right;'+
+        'border:1px solid var(--border2);border-radius:6px;'+
+        'background:var(--bg);color:var(--text);height:30px;outline:none;'+
+        '-moz-appearance:textfield" '+
+        'onfocus="this.style.borderColor=\'var(--accent)\';this.style.boxShadow=\'0 0 0 3px var(--accent-dim)\'" '+
+        'onblur="this.style.borderColor=\'var(--border2)\';this.style.boxShadow=\'none\'" '+
+        'onkeydown="ahorroCellKey(event,' + y + ',' + m + ',this)">'+
+      '<button type="button" title="Guardar (Enter)" '+
+        'onclick="ahorroCellCommitFromBtn(' + y + ',' + m + ',this)" '+
+        'style="width:30px;height:30px;border:none;border-radius:6px;'+
+        'background:var(--green);color:#fff;cursor:pointer;font-size:14px;'+
+        'display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;'+
+        'transition:opacity .15s" '+
+        'onmouseover="this.style.opacity=\'.85\'" onmouseout="this.style.opacity=\'1\'">✓</button>'+
+      '<button type="button" title="Cancelar (Esc)" '+
+        'onclick="ahorroCellCancel(' + y + ',' + m + ')" '+
+        'style="width:30px;height:30px;border:1px solid var(--border2);border-radius:6px;'+
+        'background:transparent;color:var(--text2);cursor:pointer;font-size:14px;'+
+        'display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;'+
+        'transition:background .15s,color .15s" '+
+        'onmouseover="this.style.background=\'var(--red-bg)\';this.style.color=\'var(--red)\'" '+
+        'onmouseout="this.style.background=\'transparent\';this.style.color=\'var(--text2)\'">✕</button>'+
+    '</div>';
+
+  // Inyectar (una sola vez) CSS para ocultar las flechas en webkit
+  if(!document.getElementById('ahorro-input-style')){
+    var st = document.createElement('style');
+    st.id = 'ahorro-input-style';
+    st.textContent = '.ahorro-edit-input::-webkit-outer-spin-button,'+
+      '.ahorro-edit-input::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}';
+    document.head.appendChild(st);
+  }
 
   var input = td.querySelector('input');
   input.focus();
@@ -1806,14 +1840,18 @@ function ahorroCellKey(ev, y, m, input){
     ahorroCellCommit(y, m, input);
   } else if(ev.key === 'Escape'){
     ev.preventDefault();
-    input.dataset.cancel = '1';
-    renderAhorroTable();
+    ahorroCellCancel(y, m);
   }
 }
 
-function ahorroCellBlur(y, m, input){
-  if(input.dataset.cancel === '1') return;
-  ahorroCellCommit(y, m, input);
+function ahorroCellCommitFromBtn(y, m, btn){
+  var input = btn.parentNode.querySelector('input');
+  if(input) ahorroCellCommit(y, m, input);
+}
+
+function ahorroCellCancel(y, m){
+  // Simplemente re-renderiza la tabla → la celda vuelve a su estado normal
+  renderAhorroTable();
 }
 
 function ahorroCellCommit(y, m, input){
