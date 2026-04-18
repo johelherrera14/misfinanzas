@@ -1778,7 +1778,15 @@ function editAhorroReal(y, m, td){
   if(td.querySelector('input')) return;
 
   var currentVal = getAhorroReal(y, m);
-  var initial = currentVal === null ? '' : currentVal;
+  var initial;
+  if(currentVal !== null){
+    // Ya hay un valor real registrado → editarlo
+    initial = currentVal;
+  } else {
+    // Sin valor real → pre-rellenar con el planificado del mes
+    var plan = calcAhorroPlanificado(y, m);
+    initial = plan ? parseFloat(plan.toFixed(2)) : '';
+  }
 
   td.innerHTML = '<input type="number" step="0.01" value="' + initial + '" '+
     'style="width:100%;padding:4px 8px;font-size:13px;font-family:\'Space Grotesk\',sans-serif;'+
