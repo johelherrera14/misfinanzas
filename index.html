@@ -728,7 +728,7 @@
       <button class="nav-btn" onclick="showTab('pagos',this)">Pagos</button>
       <button class="nav-btn" onclick="showTab('transacciones',this)">Transacciones</button>
       <button class="nav-btn" onclick="showTab('creditos',this)">Créditos</button>
-      <button class="nav-btn" onclick="showTab('metas',this)">Metas</button>
+      <button class="nav-btn" onclick="showTab('ahorro',this)">Ahorro</button>
       <button class="nav-btn" onclick="showTab('config',this)">Configuración</button>
     </nav>
     <div id="user-chip-wrap"></div>
@@ -1021,7 +1021,82 @@
   </div>
 
   <!-- METAS -->
-  <div id="tab-metas" class="section">
+  <div id="tab-ahorro" class="section">
+
+    <!-- Cabecera: navegador de año + métricas -->
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1.25rem;flex-wrap:wrap;gap:8px">
+      <div style="display:flex;align-items:center;gap:10px">
+        <button onclick="changeAhorroYear(-1)" style="background:none;border:0.5px solid var(--border2);border-radius:var(--radius);width:30px;height:30px;cursor:pointer;font-size:16px;color:var(--text2);display:flex;align-items:center;justify-content:center">‹</button>
+        <span id="ahorro-year-label" style="font-size:16px;font-weight:500;min-width:48px;text-align:center"></span>
+        <button onclick="changeAhorroYear(1)" style="background:none;border:0.5px solid var(--border2);border-radius:var(--radius);width:30px;height:30px;cursor:pointer;font-size:16px;color:var(--text2);display:flex;align-items:center;justify-content:center">›</button>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+        <span style="font-size:11px;color:var(--text3)">Lo planificado se calcula del presupuesto · el real lo introduces tú</span>
+      </div>
+    </div>
+
+    <!-- Métricas resumen -->
+    <div class="metrics" style="grid-template-columns:repeat(3,1fr);margin-bottom:1.25rem">
+      <div class="metric">
+        <div class="metric-label">Ahorro real acumulado</div>
+        <div style="display:flex;align-items:baseline;gap:6px;margin-top:2px">
+          <div class="metric-value" id="ahorro-s-real" style="font-size:20px">—</div>
+          <span id="ahorro-s-real-sub" style="font-size:11px;color:var(--text3)"></span>
+        </div>
+      </div>
+      <div class="metric">
+        <div class="metric-label">Planificado acumulado</div>
+        <div style="display:flex;align-items:baseline;gap:6px;margin-top:2px">
+          <div class="metric-value" id="ahorro-s-plan" style="font-size:20px">—</div>
+          <span style="font-size:11px;color:var(--text3)">del presupuesto</span>
+        </div>
+      </div>
+      <div class="metric">
+        <div class="metric-label">Diferencia</div>
+        <div style="display:flex;align-items:baseline;gap:6px;margin-top:2px">
+          <div class="metric-value" id="ahorro-s-diff" style="font-size:20px">—</div>
+          <span id="ahorro-s-diff-sub" style="font-size:11px;color:var(--text3)"></span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Gráfico evolutivo anual -->
+    <div class="card">
+      <div class="card-title">Evolución anual</div>
+      <div class="chart-wrap" style="height:240px"><canvas id="chartAhorro"></canvas></div>
+      <div class="legend" style="margin-top:10px">
+        <span><span class="legend-dot" style="background:#34D399"></span>Planificado</span>
+        <span><span class="legend-dot" style="background:#FF6B35"></span>Real</span>
+      </div>
+    </div>
+
+    <!-- Tabla mensual editable -->
+    <div class="card">
+      <div class="card-title">Detalle mensual</div>
+      <div style="overflow-x:auto">
+        <table id="ahorro-table" style="width:100%;border-collapse:collapse;table-layout:fixed;min-width:460px">
+          <thead>
+            <tr>
+              <th style="padding:10px 8px;font-size:10px;font-weight:500;text-transform:uppercase;letter-spacing:.03em;color:var(--text3);text-align:left;border-bottom:1px solid var(--border)">Mes</th>
+              <th style="padding:10px 8px;font-size:10px;font-weight:500;text-transform:uppercase;letter-spacing:.03em;color:var(--text3);text-align:right;border-bottom:1px solid var(--border)">Planificado</th>
+              <th style="padding:10px 8px;font-size:10px;font-weight:500;text-transform:uppercase;letter-spacing:.03em;color:var(--text3);text-align:right;border-bottom:1px solid var(--border)">Real</th>
+              <th style="padding:10px 8px;font-size:10px;font-weight:500;text-transform:uppercase;letter-spacing:.03em;color:var(--text3);text-align:right;border-bottom:1px solid var(--border)">Diferencia</th>
+            </tr>
+          </thead>
+          <tbody id="ahorro-tbody"></tbody>
+        </table>
+      </div>
+      <div style="margin-top:10px;font-size:11px;color:var(--text3)">💡 Haz clic en una celda de <b>Real</b> para editarla. Enter guarda, Esc cancela.</div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+    <!-- SECCIÓN METAS (funcionalidad existente, intacta) -->
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+    <div style="margin-top:2.5rem;padding-top:1.5rem;border-top:1px solid var(--border2)">
+      <div style="font-family:'Space Grotesk',sans-serif;font-size:18px;font-weight:600;letter-spacing:-0.01em;color:var(--text);margin-bottom:0.35rem">Metas de ahorro</div>
+      <div style="font-size:12px;color:var(--text3);margin-bottom:1.25rem">Objetivos específicos con un monto a alcanzar.</div>
+    </div>
+
     <div class="card">
       <div class="card-title">Mis metas de ahorro</div>
       <div id="goals-list"></div>
@@ -1348,9 +1423,9 @@
           <div class="mobile-drawer-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><rect x="2" y="5" width="20" height="14" rx="2" stroke="var(--blue)" stroke-width="2"/><path d="M2 10h20" stroke="var(--blue)" stroke-width="2"/></svg></div>
           <span class="mobile-drawer-label">Créditos</span>
         </button>
-        <button class="mobile-drawer-item" onclick="mobileNavDrawer('metas')">
+        <button class="mobile-drawer-item" onclick="mobileNavDrawer('ahorro')">
           <div class="mobile-drawer-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z" stroke="var(--amber)" stroke-width="2" stroke-linecap="round"/></svg></div>
-          <span class="mobile-drawer-label">Metas</span>
+          <span class="mobile-drawer-label">Ahorro</span>
         </button>
         <button class="mobile-drawer-item" onclick="mobileNavDrawer('config')">
           <div class="mobile-drawer-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="3" stroke="var(--text2)" stroke-width="2"/><path d="M12 2v3m0 14v3M4.22 4.22l2.12 2.12m11.32 11.32l2.12 2.12M2 12h3m14 0h3M4.22 19.78l2.12-2.12M17.66 6.34l2.12-2.12" stroke="var(--text2)" stroke-width="2" stroke-linecap="round"/></svg></div>
@@ -1462,6 +1537,297 @@ var goals=load('fin_goals',[
 function saveTx(){save('fin_tx',transactions);}
 function saveGoals(){save('fin_goals',goals);}
 
+// ═══════════════════════════════════════════════════════════════════════════
+// AHORRO — evolución anual planificado vs real (Fase 1)
+// ═══════════════════════════════════════════════════════════════════════════
+// Estructura: { "2026": { "0": 280, "1": 350, ... } }  (mes 0 = enero)
+var ahorroReal = load('fin_ahorro_real', {});
+var ahorroSelectedYear = new Date().getFullYear();
+var ahorroChart = null;
+
+function saveAhorroReal(){ save('fin_ahorro_real', ahorroReal); }
+
+// Helper reutilizable: ahorro planificado del mes = ppto ingresos − ppto gastos
+function calcAhorroPlanificado(y, m){
+  if(typeof budStruct === 'undefined' || !budStruct) return 0;
+  var inc = 0, exp = 0;
+  budStruct.forEach(function(cat){
+    cat.subs.forEach(function(sub){
+      var v = getBudVal(cat.id, sub.id, y, m);
+      if(cat.type === 'income') inc += v; else exp += v;
+    });
+  });
+  return inc - exp;
+}
+
+function getAhorroReal(y, m){
+  var yr = ahorroReal[String(y)];
+  if(!yr) return null;
+  var v = yr[String(m)];
+  return (typeof v === 'number' && !isNaN(v)) ? v : null;
+}
+
+function setAhorroReal(y, m, val){
+  var yk = String(y), mk = String(m);
+  if(val === null || val === '' || isNaN(val)){
+    if(ahorroReal[yk]){
+      delete ahorroReal[yk][mk];
+      if(Object.keys(ahorroReal[yk]).length === 0) delete ahorroReal[yk];
+    }
+  } else {
+    if(!ahorroReal[yk]) ahorroReal[yk] = {};
+    ahorroReal[yk][mk] = parseFloat(val);
+  }
+  saveAhorroReal();
+}
+
+function changeAhorroYear(delta){
+  ahorroSelectedYear += delta;
+  renderAhorro();
+}
+
+function renderAhorro(){
+  // Render de la pestaña completa: label de año, métricas, gráfico, tabla, metas
+  var yLabel = document.getElementById('ahorro-year-label');
+  if(yLabel) yLabel.textContent = ahorroSelectedYear;
+
+  renderAhorroSummary();
+  renderAhorroChart();
+  renderAhorroTable();
+  renderGoals();  // metas al final, funcionalidad existente
+}
+
+function renderAhorroSummary(){
+  var y = ahorroSelectedYear;
+  // Sumar solo los meses con "real" introducido, y comparar contra los mismos meses planificados
+  var sumReal = 0, sumPlanMatch = 0, sumPlanTotal = 0, mesesConReal = 0;
+  for(var m = 0; m < 12; m++){
+    var plan = calcAhorroPlanificado(y, m);
+    sumPlanTotal += plan;
+    var real = getAhorroReal(y, m);
+    if(real !== null){
+      sumReal += real;
+      sumPlanMatch += plan;
+      mesesConReal++;
+    }
+  }
+
+  var realEl    = document.getElementById('ahorro-s-real');
+  var realSubEl = document.getElementById('ahorro-s-real-sub');
+  var planEl    = document.getElementById('ahorro-s-plan');
+  var diffEl    = document.getElementById('ahorro-s-diff');
+  var diffSubEl = document.getElementById('ahorro-s-diff-sub');
+
+  if(realEl){
+    if(mesesConReal === 0){
+      realEl.textContent = '—';
+      realEl.style.color = 'var(--text3)';
+      if(realSubEl) realSubEl.textContent = 'sin registros aún';
+    } else {
+      realEl.textContent = fmt(sumReal);
+      realEl.style.color = sumReal >= 0 ? 'var(--green)' : 'var(--red)';
+      if(realSubEl) realSubEl.textContent = mesesConReal + (mesesConReal === 1 ? ' mes registrado' : ' meses registrados');
+    }
+  }
+
+  if(planEl){
+    planEl.textContent = fmt(sumPlanTotal);
+    planEl.style.color = 'var(--text)';
+  }
+
+  if(diffEl){
+    if(mesesConReal === 0){
+      diffEl.textContent = '—';
+      diffEl.style.color = 'var(--text3)';
+      if(diffSubEl) diffSubEl.textContent = 'real − plan (de meses registrados)';
+    } else {
+      var diff = sumReal - sumPlanMatch;
+      diffEl.textContent = (diff >= 0 ? '+' : '') + fmt(diff);
+      diffEl.style.color = diff >= 0 ? 'var(--green)' : 'var(--red)';
+      if(diffSubEl) diffSubEl.textContent = 'vs. plan de esos ' + mesesConReal + (mesesConReal === 1 ? ' mes' : ' meses');
+    }
+  }
+}
+
+function renderAhorroChart(){
+  var canvas = document.getElementById('chartAhorro');
+  if(!canvas) return;
+  var y = ahorroSelectedYear;
+
+  var labels = MONTHS_SHORT.map(function(m){ return m.toLowerCase(); });
+  var planData = [], realData = [];
+  for(var m = 0; m < 12; m++){
+    planData.push(calcAhorroPlanificado(y, m));
+    var r = getAhorroReal(y, m);
+    realData.push(r === null ? null : r);
+  }
+
+  if(ahorroChart) ahorroChart.destroy();
+  var ctx = canvas.getContext('2d');
+  var ct = chartTheme();
+  var gPlan = makeLineGradient(ctx, '#34D399', 240);
+  var gReal = makeLineGradient(ctx, '#FF6B35', 240);
+  var dark = document.documentElement.getAttribute('data-theme') === 'dark';
+  Chart.defaults.font.family = "'Space Grotesk', sans-serif";
+
+  ahorroChart = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: labels,
+      datasets: [
+        {
+          label: 'Planificado',
+          data: planData,
+          borderColor: '#34D399',
+          backgroundColor: gPlan,
+          tension: .4, fill: true,
+          pointRadius: 4, pointHoverRadius: 6,
+          pointBackgroundColor: '#34D399',
+          pointBorderColor: dark ? '#17171A' : '#fff',
+          pointBorderWidth: 2, borderWidth: 2.5,
+          spanGaps: false
+        },
+        {
+          label: 'Real',
+          data: realData,
+          borderColor: '#FF6B35',
+          backgroundColor: gReal,
+          tension: .4, fill: true,
+          pointRadius: 4, pointHoverRadius: 6,
+          pointBackgroundColor: '#FF6B35',
+          pointBorderColor: dark ? '#17171A' : '#fff',
+          pointBorderWidth: 2, borderWidth: 2.5,
+          spanGaps: false
+        }
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: ct.tipBg, titleColor: ct.tick, bodyColor: ct.tipText,
+          borderColor: ct.tipBorder, borderWidth: 1, padding: 10, cornerRadius: 10,
+          callbacks: {
+            label: function(c){
+              if(c.parsed.y === null || c.parsed.y === undefined) return ' ' + c.dataset.label + ': —';
+              return ' ' + c.dataset.label + ': ' + fmt(c.parsed.y);
+            }
+          }
+        }
+      },
+      scales: {
+        x: { grid: { display: false }, ticks: { font: { size: 11 }, color: ct.tick } },
+        y: { grid: { color: ct.grid }, ticks: { callback: function(v){ return fmt(v); }, font: { size: 11 }, color: ct.tick } }
+      }
+    }
+  });
+}
+
+function renderAhorroTable(){
+  var tbody = document.getElementById('ahorro-tbody');
+  if(!tbody) return;
+  var y = ahorroSelectedYear;
+  var now = new Date();
+  var currentY = now.getFullYear(), currentM = now.getMonth();
+
+  var TD = 'padding:10px 8px;font-size:13px;border-bottom:0.5px solid var(--border);';
+  var TDR = TD + 'text-align:right;font-family:\'Space Grotesk\',sans-serif;';
+
+  var html = '';
+  for(var m = 0; m < 12; m++){
+    var plan = calcAhorroPlanificado(y, m);
+    var real = getAhorroReal(y, m);
+    var isFuture = (y > currentY) || (y === currentY && m > currentM);
+    var rowOpacity = isFuture ? 'opacity:.55;' : '';
+
+    var planTxt = plan === 0 ? '<span style="color:var(--text3)">—</span>' : fmt(plan);
+    var realTxt, realColor = '';
+    if(real === null){
+      realTxt = '<span style="color:var(--text3)">+ registrar</span>';
+    } else {
+      realTxt = fmt(real);
+      realColor = 'color:' + (real >= 0 ? 'var(--green)' : 'var(--red)') + ';';
+    }
+
+    var diffTxt, diffColor = '';
+    if(real === null){
+      diffTxt = '<span style="color:var(--text3)">—</span>';
+    } else {
+      var d = real - plan;
+      diffTxt = (d >= 0 ? '+' : '') + fmt(d);
+      diffColor = 'color:' + (d >= 0 ? 'var(--green)' : 'var(--red)') + ';';
+    }
+
+    html += '<tr style="' + rowOpacity + '">'+
+      '<td style="' + TD + 'font-weight:500">' + MONTHS_ES[m] + '</td>'+
+      '<td style="' + TDR + 'color:var(--text2)">' + planTxt + '</td>'+
+      '<td class="ahorro-real-cell" data-year="' + y + '" data-month="' + m + '" '+
+        'onclick="editAhorroReal(' + y + ',' + m + ', this)" '+
+        'style="' + TDR + realColor + 'cursor:pointer;transition:background .1s" '+
+        'onmouseover="this.style.background=\'var(--bg2)\'" '+
+        'onmouseout="this.style.background=\'transparent\'">' + realTxt + '</td>'+
+      '<td style="' + TDR + diffColor + '">' + diffTxt + '</td>'+
+    '</tr>';
+  }
+  tbody.innerHTML = html;
+}
+
+function editAhorroReal(y, m, td){
+  // Si ya hay un input abierto en esta celda, no hacer nada
+  if(td.querySelector('input')) return;
+
+  var currentVal = getAhorroReal(y, m);
+  var initial = currentVal === null ? '' : currentVal;
+
+  td.innerHTML = '<input type="number" step="0.01" value="' + initial + '" '+
+    'style="width:100%;padding:4px 8px;font-size:13px;font-family:\'Space Grotesk\',sans-serif;'+
+    'text-align:right;border:1px solid var(--accent);border-radius:6px;'+
+    'background:var(--bg);color:var(--text);height:30px;outline:none;box-shadow:0 0 0 3px var(--accent-dim)" '+
+    'onkeydown="ahorroCellKey(event,' + y + ',' + m + ',this)" '+
+    'onblur="ahorroCellBlur(' + y + ',' + m + ',this)">';
+
+  var input = td.querySelector('input');
+  input.focus();
+  input.select();
+}
+
+function ahorroCellKey(ev, y, m, input){
+  if(ev.key === 'Enter'){
+    ev.preventDefault();
+    ahorroCellCommit(y, m, input);
+  } else if(ev.key === 'Escape'){
+    ev.preventDefault();
+    input.dataset.cancel = '1';
+    renderAhorroTable();
+  }
+}
+
+function ahorroCellBlur(y, m, input){
+  if(input.dataset.cancel === '1') return;
+  ahorroCellCommit(y, m, input);
+}
+
+function ahorroCellCommit(y, m, input){
+  var raw = input.value.trim();
+  if(raw === ''){
+    setAhorroReal(y, m, null);  // vacío = borrar registro
+  } else {
+    var v = parseFloat(raw.replace(',', '.'));
+    if(isNaN(v)){
+      renderAhorroTable();
+      return;
+    }
+    setAhorroReal(y, m, v);
+  }
+  renderAhorroSummary();
+  renderAhorroChart();
+  renderAhorroTable();
+}
+// ═══════════════════════════════════════════════════════════════════════════
+// FIN AHORRO
+// ═══════════════════════════════════════════════════════════════════════════
+
 function showTab(t,btn){
   hideTooltip();
   document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));
@@ -1472,7 +1838,7 @@ function showTab(t,btn){
   if(t==='transacciones'){renderTx();renderQuickSummary();}
   if(t==='pagos'){pagosRender();}
   if(t==='presupuesto'){renderBudgetAnnual();}
-  if(t==='metas'){renderGoals();}
+  if(t==='ahorro'){renderAhorro();}
   if(t==='creditos'){creditosRender();}
   if(t==='config'){renderConfig();driveLoadBackupsList();}
 }
@@ -3666,7 +4032,7 @@ function refreshAllAmounts(){
   if(document.getElementById('tab-presupuesto').classList.contains('active')){
     if(budDetailKey) renderBudget(); else renderAnnualView();
   }
-  if(document.getElementById('tab-metas').classList.contains('active')){renderGoals();}
+  if(document.getElementById('tab-ahorro').classList.contains('active')){renderAhorro();}
   setTimeout(renderCharts,60);
 }
 
@@ -5062,6 +5428,7 @@ async function fbSaveData(){
       creditos: JSON.stringify(creditos),
       currencyConfig: JSON.stringify(currencyConfig),
       pagosChecked: JSON.stringify(pagosChecked),
+      ahorroReal: JSON.stringify(ahorroReal),
       updatedAt: now
     };
     var ref = window._fbDoc(window._fbDb, 'users', fbUser.uid);
@@ -5106,6 +5473,7 @@ async function fbLoadData(){
       if(data.creditos) creditos = JSON.parse(data.creditos);
       if(data.currencyConfig) currencyConfig = JSON.parse(data.currencyConfig);
       if(data.pagosChecked) pagosChecked = JSON.parse(data.pagosChecked);
+      if(data.ahorroReal) ahorroReal = JSON.parse(data.ahorroReal);
       // Sincronizar timestamp local
       try{localStorage.setItem('fin_local_ts', data.updatedAt);}catch(e){}
       return true;
@@ -5145,7 +5513,7 @@ function refreshUI(){
   if(document.getElementById('tab-presupuesto').classList.contains('active')) renderAnnualView();
   if(document.getElementById('tab-pagos').classList.contains('active')) pagosRender();
   if(document.getElementById('tab-creditos').classList.contains('active')) creditosRender();
-  if(document.getElementById('tab-metas').classList.contains('active')) renderGoals();
+  if(document.getElementById('tab-ahorro').classList.contains('active')) renderAhorro();
   renderConfig();
   updateMobileHero();
 }
@@ -5167,7 +5535,7 @@ window.onFirebaseAuthChange = async function(user){
       // Cambio de cuenta — limpiar localStorage para que Firebase siempre gane
       var keysToRemove = ['fin_bstruct','fin_bvals','fin_bnotes','fin_tx','fin_creditos',
         'fin_goals','fin_pagos_checked','fin_pagos_spent','fin_currency',
-        'fin_bsumexp','fin_local_ts','fin_pending_sync'];
+        'fin_bsumexp','fin_local_ts','fin_pending_sync','fin_ahorro_real'];
       keysToRemove.forEach(function(k){ localStorage.removeItem(k); });
       console.log('Cambio de cuenta → localStorage limpiado, cargando de Firebase');
     }
@@ -5206,7 +5574,7 @@ async function restablecerCuenta(){
   // Borrar localStorage
   var keysToRemove = ['fin_bstruct','fin_bvals','fin_bnotes','fin_tx','fin_creditos',
     'fin_goals','fin_pagos_checked','fin_pagos_spent','fin_currency',
-    'fin_bsumexp','fin_local_ts','fin_pending_sync','fin_cats'];
+    'fin_bsumexp','fin_local_ts','fin_pending_sync','fin_cats','fin_ahorro_real'];
   keysToRemove.forEach(function(k){ localStorage.removeItem(k); });
 
   // Guardar plantilla por defecto en Firestore directamente
@@ -5222,6 +5590,7 @@ async function restablecerCuenta(){
         creditos: JSON.stringify([]),
         currencyConfig: JSON.stringify({code:'EUR',symbol:'€',name:'Euro',position:'after'}),
         pagosChecked: JSON.stringify({}),
+        ahorroReal: JSON.stringify({}),
         updatedAt: now
       };
       var ref = window._fbDoc(window._fbDb, 'users', fbUser.uid);
