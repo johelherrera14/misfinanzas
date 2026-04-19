@@ -1039,6 +1039,20 @@
   </div>
 
   <!-- ═══════════════════════════════════════════════════════════════════ -->
+  <!-- MODAL: Confirmación genérica para Ahorro -->
+  <!-- ═══════════════════════════════════════════════════════════════════ -->
+  <div id="ahorro-confirm-modal" class="modal-backdrop" style="display:none" onclick="if(event.target===this)ahorroConfirmCancel()">
+    <div class="modal" style="max-width:360px">
+      <div class="modal-title" id="ahorro-confirm-title">¿Confirmar?</div>
+      <div id="ahorro-confirm-msg" style="font-size:13px;color:var(--text2);line-height:1.55;margin-bottom:0.25rem"></div>
+      <div class="modal-footer">
+        <button class="btn-ghost" onclick="ahorroConfirmCancel()" id="ahorro-confirm-cancel-btn">Cancelar</button>
+        <button class="btn-primary" style="flex:1" onclick="ahorroConfirmOk()" id="ahorro-confirm-ok-btn">Confirmar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════════════ -->
   <!-- MODAL: Nuevo / editar movimiento (Sub-fase 2A: simplificado) -->
   <!-- ═══════════════════════════════════════════════════════════════════ -->
   <div id="ahorro-mov-modal" class="modal-backdrop" style="display:none" onclick="if(event.target===this)ahorroCloseMovModal()">
@@ -1815,6 +1829,56 @@ function renderAhorroInitBanner(){
   banner.style.display = ahorroInitDone ? 'none' : 'flex';
 }
 
+// ── MODAL de confirmación reutilizable (reemplaza confirm() nativos en Ahorro)
+// Uso: ahorroConfirm({title, msg, okText, okStyle}, function(){ ...acción si OK... })
+// okStyle puede ser 'danger' (rojo) o undefined (naranja primario)
+var ahorroConfirmCallback = null;
+
+function ahorroConfirm(opts, onOk){
+  var modal  = document.getElementById('ahorro-confirm-modal');
+  var titleEl = document.getElementById('ahorro-confirm-title');
+  var msgEl   = document.getElementById('ahorro-confirm-msg');
+  var okBtn   = document.getElementById('ahorro-confirm-ok-btn');
+  if(!modal) return;
+
+  ahorroConfirmCallback = onOk || null;
+
+  titleEl.textContent = opts.title || '¿Confirmar?';
+  if(opts.msg){
+    msgEl.innerHTML = opts.msg;
+    msgEl.style.display = 'block';
+  } else {
+    msgEl.textContent = '';
+    msgEl.style.display = 'none';
+  }
+
+  okBtn.textContent = opts.okText || 'Confirmar';
+  if(opts.okStyle === 'danger'){
+    okBtn.style.background = 'var(--red)';
+    okBtn.style.color = '#fff';
+  } else {
+    okBtn.style.background = '';
+    okBtn.style.color = '';
+  }
+
+  modal.style.display = 'flex';
+  setTimeout(function(){ if(okBtn) okBtn.focus(); }, 50);
+}
+
+function ahorroConfirmOk(){
+  var cb = ahorroConfirmCallback;
+  ahorroConfirmCallback = null;
+  var modal = document.getElementById('ahorro-confirm-modal');
+  if(modal) modal.style.display = 'none';
+  if(typeof cb === 'function') cb();
+}
+
+function ahorroConfirmCancel(){
+  ahorroConfirmCallback = null;
+  var modal = document.getElementById('ahorro-confirm-modal');
+  if(modal) modal.style.display = 'none';
+}
+
 function ahorroDismissInitBanner(){
   // "Más tarde" = ocultar banner esta sesión pero NO marcar como hecho.
   // Volverá a aparecer al recargar. Así evita ser persistente y molesto, pero recuerda.
@@ -2084,45 +2148,53 @@ function ahorroSaveMov(){
   var categoria = catEl && catEl.value ? catEl.value : null;
   var nota = notaEl ? notaEl.value.trim() : '';
 
+  // Función interna que persiste el movimiento (llamada directa o vía confirmación)
+  function commitMov(){
+    if(ahorroMovState.editingId){
+      // Modo edición: actualizar movimiento existente
+      for(var i=0;i<ahorroMov.length;i++){
+        if(ahorroMov[i].id === ahorroMovState.editingId){
+          ahorroMov[i].tipo = tipo;
+          ahorroMov[i].fecha = fecha;
+          ahorroMov[i].monto = monto;
+          ahorroMov[i].categoria = categoria;
+          ahorroMov[i].eficiencia = efic;
+          ahorroMov[i].nota = nota;
+          break;
+        }
+      }
+    } else {
+      // Modo creación
+      ahorroMov.push({
+        id: ahorroNewId(),
+        tipo: tipo,
+        fecha: fecha,
+        monto: monto,
+        categoria: categoria,
+        eficiencia: efic,
+        nota: nota
+      });
+    }
+    saveAhorroMov();
+    ahorroCloseMovModal();
+    renderAhorro();
+  }
+
   // Aviso suave: retiro mayor que saldo actual (no bloqueante)
   if(tipo === 'retiro'){
     var saldo = ahorroSaldoTotal();
     if(monto > saldo){
-      if(!confirm('Este retiro (' + fmt(monto) + ') excede tu saldo actual (' + fmt(saldo) + '). ¿Registrarlo igualmente?')){
-        return;
-      }
+      ahorroConfirm({
+        title: 'Retiro mayor que el saldo',
+        msg: 'Retiro <b>' + fmt(monto) + '</b> · saldo actual <b>' + fmt(saldo) + '</b>.<br>¿Registrarlo igualmente?',
+        okText: 'Registrar',
+        okStyle: 'danger'
+      }, commitMov);
+      return;
     }
   }
 
-  if(ahorroMovState.editingId){
-    // Modo edición: actualizar movimiento existente
-    for(var i=0;i<ahorroMov.length;i++){
-      if(ahorroMov[i].id === ahorroMovState.editingId){
-        ahorroMov[i].tipo = tipo;
-        ahorroMov[i].fecha = fecha;
-        ahorroMov[i].monto = monto;
-        ahorroMov[i].categoria = categoria;
-        ahorroMov[i].eficiencia = efic;
-        ahorroMov[i].nota = nota;
-        break;
-      }
-    }
-  } else {
-    // Modo creación
-    ahorroMov.push({
-      id: ahorroNewId(),
-      tipo: tipo,
-      fecha: fecha,
-      monto: monto,
-      categoria: categoria,
-      eficiencia: efic,
-      nota: nota
-    });
-  }
-  saveAhorroMov();
-
-  ahorroCloseMovModal();
-  renderAhorro();
+  commitMov();
 }
 // ── 2B: Lista de movimientos agrupados por mes ─────────────────────────────
 // Estado de meses plegados (solo en memoria). Por defecto, el mes actual abierto.
@@ -2300,31 +2372,41 @@ function ahorroDeleteMov(id){
   for(var i=0;i<ahorroMov.length;i++){ if(ahorroMov[i].id === id){ mv = ahorroMov[i]; idx = i; break; } }
   if(!mv) return;
 
-  var msg;
+  var opts;
   if(mv.tipo === 'inicial'){
-    msg = 'Vas a eliminar tu saldo inicial de ' + fmt(mv.monto) + '.\nEl saldo total bajará en ese monto y volverá a aparecer el banner de configuración. ¿Seguro?';
+    opts = {
+      title: '¿Eliminar saldo inicial?',
+      msg: 'Se eliminará tu saldo inicial de <b>' + fmt(mv.monto) + '</b>.',
+      okText: 'Eliminar',
+      okStyle: 'danger'
+    };
   } else {
     var accion = mv.tipo === 'aporte' ? 'aporte' : 'retiro';
     var d = new Date(mv.fecha + 'T00:00:00');
     var fechaTxt = String(d.getDate()).padStart(2,'0') + '/' + String(d.getMonth()+1).padStart(2,'0') + '/' + d.getFullYear();
-    msg = '¿Eliminar este ' + accion + ' de ' + fmt(mv.monto) + ' del ' + fechaTxt + '?';
+    opts = {
+      title: '¿Eliminar ' + accion + '?',
+      msg: '<b>' + fmt(mv.monto) + '</b> · ' + fechaTxt,
+      okText: 'Eliminar',
+      okStyle: 'danger'
+    };
   }
-  if(!confirm(msg)) return;
 
-  ahorroMov.splice(idx, 1);
+  ahorroConfirm(opts, function(){
+    ahorroMov.splice(idx, 1);
 
-  // Si eliminamos el saldo inicial, desmarcamos la flag para que vuelva a aparecer el banner
-  if(mv.tipo === 'inicial'){
-    // Solo si no queda ningún otro movimiento inicial
-    var otroInicial = ahorroMov.some(function(x){ return x.tipo === 'inicial'; });
-    if(!otroInicial){
-      ahorroInitDone = false;
-      saveAhorroInit();
+    // Si eliminamos el saldo inicial, desmarcamos la flag para que vuelva a aparecer el banner
+    if(mv.tipo === 'inicial'){
+      var otroInicial = ahorroMov.some(function(x){ return x.tipo === 'inicial'; });
+      if(!otroInicial){
+        ahorroInitDone = false;
+        saveAhorroInit();
+      }
     }
-  }
 
-  saveAhorroMov();
-  renderAhorro();
+    saveAhorroMov();
+    renderAhorro();
+  });
 }
 
 // Editar saldo inicial — reutiliza el modal de configurar inicial
