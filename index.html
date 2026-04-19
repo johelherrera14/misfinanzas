@@ -2590,11 +2590,12 @@ function renderAhorroChart(){
   }
 
   // ── 5) Puntos destacados: solo en los días con movimiento real ──
+  // Pequeños en reposo (protagonismo a la curva), más grandes al hacer hover.
   var pointRadii = [];
   var pointHoverRadii = [];
   for(var i = 0; i < daysInYear; i++){
     if(diasConMov[i]){
-      pointRadii.push(4);
+      pointRadii.push(2);
       pointHoverRadii.push(6);
     } else {
       pointRadii.push(0);
@@ -2643,7 +2644,7 @@ function renderAhorroChart(){
           pointHoverRadius: pointHoverRadii,
           pointBackgroundColor: '#FF6B35',
           pointBorderColor: dark ? '#17171A' : '#fff',
-          pointBorderWidth: 2,
+          pointBorderWidth: 1.5,
           borderWidth: 2.5,
           spanGaps: false
         }
