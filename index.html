@@ -1020,10 +1020,109 @@
     </div>
   </div>
 
+  <!-- ═══════════════════════════════════════════════════════════════════ -->
+  <!-- MODAL: Configurar saldo inicial -->
+  <!-- ═══════════════════════════════════════════════════════════════════ -->
+  <div id="ahorro-init-modal" class="modal-backdrop" style="display:none" onclick="if(event.target===this)ahorroCloseInitialModal()">
+    <div class="modal" style="max-width:380px">
+      <div class="modal-title">Configura tu saldo inicial</div>
+      <div style="font-size:12.5px;color:var(--text2);line-height:1.5;margin-bottom:1rem">Indica cuánto tienes ahorrado actualmente. Se registrará como tu punto de partida y podrás editarlo o eliminarlo después.</div>
+      <label style="font-size:11px;font-weight:500;color:var(--text3);text-transform:uppercase;letter-spacing:.05em">Monto</label>
+      <input type="number" id="ahorro-init-input" min="0" step="0.01" placeholder="0,00" style="font-size:18px;text-align:center;height:48px;margin:6px 0 14px">
+      <label style="font-size:11px;font-weight:500;color:var(--text3);text-transform:uppercase;letter-spacing:.05em">Fecha</label>
+      <input type="date" id="ahorro-init-date" style="font-size:14px;height:42px;margin:6px 0 0">
+      <div class="modal-footer">
+        <button class="btn-ghost" onclick="ahorroCloseInitialModal()">Cancelar</button>
+        <button class="btn-primary" style="flex:1" onclick="ahorroSaveInitial()">Guardar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════════════ -->
+  <!-- MODAL: Nuevo / editar movimiento (Sub-fase 2A: simplificado) -->
+  <!-- ═══════════════════════════════════════════════════════════════════ -->
+  <div id="ahorro-mov-modal" class="modal-backdrop" style="display:none" onclick="if(event.target===this)ahorroCloseMovModal()">
+    <div class="modal" style="max-width:420px">
+      <div class="modal-title" id="ahorro-mov-modal-title">Nuevo movimiento</div>
+
+      <!-- Selector de tipo (segmented) -->
+      <div style="display:flex;gap:6px;background:var(--bg2);border-radius:var(--radius);padding:4px;margin-bottom:14px" id="ahorro-mov-type-tabs">
+        <button type="button" data-type="aporte" onclick="ahorroSetMovType('aporte')" style="flex:1;padding:8px;border:none;border-radius:7px;background:var(--surface);color:var(--text);font-family:'DM Sans',sans-serif;font-size:13px;font-weight:500;cursor:pointer;box-shadow:var(--shadow)">+ Aporte</button>
+        <button type="button" data-type="retiro" onclick="ahorroSetMovType('retiro')" style="flex:1;padding:8px;border:none;border-radius:7px;background:transparent;color:var(--text2);font-family:'DM Sans',sans-serif;font-size:13px;font-weight:500;cursor:pointer">− Retiro</button>
+      </div>
+
+      <div class="form-row">
+        <div>
+          <label style="font-size:11px;font-weight:500;color:var(--text3);text-transform:uppercase;letter-spacing:.05em">Monto</label>
+          <input type="number" id="ahorro-mov-monto" min="0" step="0.01" placeholder="0,00" style="font-size:16px;text-align:right;height:42px;margin-top:6px">
+        </div>
+        <div>
+          <label style="font-size:11px;font-weight:500;color:var(--text3);text-transform:uppercase;letter-spacing:.05em">Fecha</label>
+          <input type="date" id="ahorro-mov-fecha" style="font-size:14px;height:42px;margin-top:6px">
+        </div>
+      </div>
+
+      <!-- Categoría (opcional para aporte, opcional para retiro en 2A — obligatoria en 2B con eficiencia) -->
+      <div style="margin-bottom:10px">
+        <label style="font-size:11px;font-weight:500;color:var(--text3);text-transform:uppercase;letter-spacing:.05em">Categoría <span id="ahorro-mov-cat-required" style="color:var(--text3);font-weight:400;text-transform:none;letter-spacing:0">(opcional)</span></label>
+        <select id="ahorro-mov-cat" style="font-size:14px;height:42px;margin-top:6px"></select>
+      </div>
+
+      <!-- Eficiencia (solo retiro) -->
+      <div id="ahorro-mov-efic-wrap" style="margin-bottom:10px;display:none">
+        <label style="font-size:11px;font-weight:500;color:var(--text3);text-transform:uppercase;letter-spacing:.05em">Eficiencia <span style="color:var(--red);font-weight:400;text-transform:none;letter-spacing:0">(obligatoria)</span></label>
+        <div style="display:flex;gap:6px;margin-top:6px" id="ahorro-mov-efic-tabs">
+          <button type="button" data-efic="util" onclick="ahorroSetEfic('util')" style="flex:1;padding:9px 6px;border:1px solid var(--border2);border-radius:8px;background:transparent;color:var(--text2);font-family:'DM Sans',sans-serif;font-size:12.5px;font-weight:500;cursor:pointer">🟢 Útil</button>
+          <button type="button" data-efic="justificable" onclick="ahorroSetEfic('justificable')" style="flex:1;padding:9px 6px;border:1px solid var(--border2);border-radius:8px;background:transparent;color:var(--text2);font-family:'DM Sans',sans-serif;font-size:12.5px;font-weight:500;cursor:pointer">🟡 Justificable</button>
+          <button type="button" data-efic="innecesario" onclick="ahorroSetEfic('innecesario')" style="flex:1;padding:9px 6px;border:1px solid var(--border2);border-radius:8px;background:transparent;color:var(--text2);font-family:'DM Sans',sans-serif;font-size:12.5px;font-weight:500;cursor:pointer">🔴 Innecesario</button>
+        </div>
+      </div>
+
+      <!-- Nota (siempre opcional) -->
+      <div style="margin-bottom:6px">
+        <label style="font-size:11px;font-weight:500;color:var(--text3);text-transform:uppercase;letter-spacing:.05em">Nota <span style="color:var(--text3);font-weight:400;text-transform:none;letter-spacing:0">(opcional)</span></label>
+        <textarea id="ahorro-mov-nota" placeholder="Ej: Portátil para trabajo" style="width:100%;height:60px;resize:vertical;font-size:13px;padding:8px 10px;border:1px solid var(--border2);border-radius:var(--radius);background:var(--bg);color:var(--text);font-family:inherit;line-height:1.4;margin-top:6px"></textarea>
+      </div>
+
+      <div id="ahorro-mov-error" style="display:none;color:var(--red);font-size:12px;margin-top:8px"></div>
+
+      <div class="modal-footer">
+        <button class="btn-ghost" onclick="ahorroCloseMovModal()">Cancelar</button>
+        <button class="btn-primary" style="flex:1" onclick="ahorroSaveMov()" id="ahorro-mov-save-btn">Guardar</button>
+      </div>
+    </div>
+  </div>
+
   <!-- METAS -->
   <div id="tab-ahorro" class="section">
 
-    <!-- Cabecera: navegador de año + métricas -->
+    <!-- HERO: Saldo total acumulado + botón nuevo movimiento -->
+    <div id="ahorro-hero" style="background:linear-gradient(135deg,var(--surface) 0%,var(--bg2) 100%);border:1px solid var(--border);border-radius:var(--radius-xl);padding:1.5rem 1.75rem;margin-bottom:1.25rem;box-shadow:var(--shadow);display:flex;align-items:center;justify-content:space-between;gap:1rem;flex-wrap:wrap">
+      <div style="min-width:0">
+        <div style="font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px">Saldo total ahorrado</div>
+        <div id="ahorro-hero-saldo" style="font-family:'Space Grotesk',sans-serif;font-size:32px;font-weight:600;letter-spacing:-0.02em;color:var(--text);line-height:1.1">—</div>
+        <div id="ahorro-hero-sub" style="font-size:12px;color:var(--text3);margin-top:6px">Sin movimientos registrados todavía</div>
+      </div>
+      <div style="display:flex;gap:8px;flex-shrink:0">
+        <button onclick="ahorroOpenMovModal('aporte')" style="padding:10px 16px;background:var(--accent);color:#fff;border:none;border-radius:var(--radius);font-family:'DM Sans',sans-serif;font-size:13px;font-weight:500;cursor:pointer;display:inline-flex;align-items:center;gap:6px;transition:opacity .15s" onmouseover="this.style.opacity='.85'" onmouseout="this.style.opacity='1'">
+          <span style="font-size:16px;line-height:1">+</span> Movimiento
+        </button>
+      </div>
+    </div>
+
+    <!-- Banner saldo inicial (visible solo si no se ha configurado) -->
+    <div id="ahorro-init-banner" style="display:none;background:var(--accent-dim);border:1px solid var(--accent);border-radius:var(--radius-xl);padding:1.25rem 1.5rem;margin-bottom:1.25rem;display:flex;align-items:center;justify-content:space-between;gap:1rem;flex-wrap:wrap">
+      <div style="min-width:0">
+        <div style="font-size:14px;font-weight:600;color:var(--text);margin-bottom:4px">👋 Configura tu saldo inicial</div>
+        <div style="font-size:12px;color:var(--text2)">Si ya tienes ahorros, indícanos cuánto para que el sistema arranque desde tu saldo real.</div>
+      </div>
+      <div style="display:flex;gap:8px;flex-shrink:0">
+        <button onclick="ahorroOpenInitialModal()" style="padding:9px 14px;background:var(--accent);color:#fff;border:none;border-radius:var(--radius);font-family:'DM Sans',sans-serif;font-size:12.5px;font-weight:500;cursor:pointer">Configurar</button>
+        <button onclick="ahorroDismissInitBanner()" style="padding:9px 14px;background:transparent;color:var(--text2);border:1px solid var(--border2);border-radius:var(--radius);font-family:'DM Sans',sans-serif;font-size:12.5px;font-weight:500;cursor:pointer">Más tarde</button>
+      </div>
+    </div>
+
+    <!-- Cabecera: navegador de año -->
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1.25rem;flex-wrap:wrap;gap:8px">
       <div style="display:flex;align-items:center;gap:10px">
         <button onclick="changeAhorroYear(-1)" style="background:none;border:0.5px solid var(--border2);border-radius:var(--radius);width:30px;height:30px;cursor:pointer;font-size:16px;color:var(--text2);display:flex;align-items:center;justify-content:center">‹</button>
@@ -1031,7 +1130,7 @@
         <button onclick="changeAhorroYear(1)" style="background:none;border:0.5px solid var(--border2);border-radius:var(--radius);width:30px;height:30px;cursor:pointer;font-size:16px;color:var(--text2);display:flex;align-items:center;justify-content:center">›</button>
       </div>
       <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
-        <span style="font-size:11px;color:var(--text3)">Lo planificado se calcula del presupuesto · el real lo introduces tú</span>
+        <span style="font-size:11px;color:var(--text3)">El real se calcula desde tus movimientos · planificado del presupuesto</span>
       </div>
     </div>
 
@@ -1086,7 +1185,13 @@
           <tbody id="ahorro-tbody"></tbody>
         </table>
       </div>
-      <div style="margin-top:10px;font-size:11px;color:var(--text3)">💡 Haz clic en una celda de <b>Real</b> para editarla. Enter guarda, Esc cancela.</div>
+      <div style="margin-top:10px;font-size:11px;color:var(--text3)">💡 El <b>Real</b> es la suma de tus aportes menos los retiros del mes. Para modificarlo, añade movimientos.</div>
+    </div>
+
+    <!-- Lista de movimientos del año (placeholder Sub-fase 2A, completo en 2B) -->
+    <div class="card" id="ahorro-mov-card" style="display:none">
+      <div class="card-title">Movimientos del año</div>
+      <div id="ahorro-mov-list"></div>
     </div>
 
     <!-- ═══════════════════════════════════════════════════════════════════ -->
@@ -1541,11 +1646,88 @@ function saveGoals(){save('fin_goals',goals);}
 // AHORRO — evolución anual planificado vs real (Fase 1)
 // ═══════════════════════════════════════════════════════════════════════════
 // Estructura: { "2026": { "0": 280, "1": 350, ... } }  (mes 0 = enero)
+// NOTA: A partir de Fase 2, este dato se calcula desde los movimientos.
+//       Se mantiene la variable para retrocompatibilidad pero ya no se edita
+//       desde la UI. Se conservará también vacía hasta que el usuario tenga
+//       movimientos.
 var ahorroReal = load('fin_ahorro_real', {});
 var ahorroSelectedYear = new Date().getFullYear();
 var ahorroChart = null;
 
 function saveAhorroReal(){ save('fin_ahorro_real', ahorroReal); }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// AHORRO — Movimientos (Fase 2A)
+// ═══════════════════════════════════════════════════════════════════════════
+// Estructura movimiento:
+// { id, tipo:'inicial'|'aporte'|'retiro', fecha:'YYYY-MM-DD',
+//   monto:number(positivo), categoria:catId|null,
+//   eficiencia:'util'|'justificable'|'innecesario'|null, nota:string }
+//
+// Estructura categoría:
+// { id, nombre, icono, color }
+
+var DEFAULT_AHORRO_CATS = [
+  { id:'cat_tecnologia',  nombre:'Tecnología',     icono:'💻', color:'#A78BFA' },
+  { id:'cat_ropa',        nombre:'Ropa y calzado', icono:'👕', color:'#F472B6' },
+  { id:'cat_inversion',   nombre:'Inversión',      icono:'📈', color:'#34D399' },
+  { id:'cat_salud',       nombre:'Salud',          icono:'🏥', color:'#F87171' },
+  { id:'cat_formacion',   nombre:'Formación',      icono:'🎓', color:'#60A5FA' },
+  { id:'cat_viajes',      nombre:'Viajes',         icono:'✈️', color:'#22D3EE' },
+  { id:'cat_hogar',       nombre:'Hogar',          icono:'🛋️', color:'#FF6B35' },
+  { id:'cat_regalos',     nombre:'Regalos',        icono:'🎁', color:'#FBBF24' },
+  { id:'cat_imprevisto',  nombre:'Imprevisto',     icono:'⚠️', color:'#9CA3AF' },
+  { id:'cat_capricho',    nombre:'Capricho/Ocio',  icono:'🎭', color:'#EC4899' },
+  { id:'cat_otro',        nombre:'Otro',           icono:'🔧', color:'#A8A7A2' }
+];
+
+var ahorroMov  = load('fin_ahorro_mov',  []);
+var ahorroCats = load('fin_ahorro_cats', DEFAULT_AHORRO_CATS);
+var ahorroInitDone = load('fin_ahorro_init', false);
+
+function saveAhorroMov() { save('fin_ahorro_mov',  ahorroMov);  }
+function saveAhorroCats(){ save('fin_ahorro_cats', ahorroCats); }
+function saveAhorroInit(){ save('fin_ahorro_init', ahorroInitDone); }
+
+function ahorroNewId(){
+  return 'mov_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2,7);
+}
+
+function ahorroGetCat(catId){
+  if(!catId) return null;
+  for(var i=0;i<ahorroCats.length;i++){ if(ahorroCats[i].id===catId) return ahorroCats[i]; }
+  return null;
+}
+
+// Saldo total acumulado desde todos los movimientos (todos los años)
+function ahorroSaldoTotal(){
+  var total = 0;
+  ahorroMov.forEach(function(mv){
+    if(mv.tipo === 'retiro') total -= mv.monto;
+    else total += mv.monto;  // aporte o inicial
+  });
+  return total;
+}
+
+// Suma neta de movimientos de un mes concreto (aportes − retiros, inicial cuenta como aporte)
+function ahorroNetoMes(y, m){
+  var net = 0;
+  ahorroMov.forEach(function(mv){
+    var d = new Date(mv.fecha + 'T00:00:00');
+    if(d.getFullYear() !== y || d.getMonth() !== m) return;
+    if(mv.tipo === 'retiro') net -= mv.monto;
+    else net += mv.monto;
+  });
+  return net;
+}
+
+// Devuelve los movimientos de un mes/año, ordenados por fecha desc
+function ahorroMovDelMes(y, m){
+  return ahorroMov.filter(function(mv){
+    var d = new Date(mv.fecha + 'T00:00:00');
+    return d.getFullYear()===y && d.getMonth()===m;
+  }).sort(function(a,b){ return b.fecha.localeCompare(a.fecha); });
+}
 
 // Helper reutilizable: ahorro planificado del mes = ppto ingresos − ppto gastos
 function calcAhorroPlanificado(y, m){
@@ -1561,12 +1743,18 @@ function calcAhorroPlanificado(y, m){
 }
 
 function getAhorroReal(y, m){
-  var yr = ahorroReal[String(y)];
-  if(!yr) return null;
-  var v = yr[String(m)];
-  return (typeof v === 'number' && !isNaN(v)) ? v : null;
+  // Fase 2: fuente de verdad = movimientos del mes (aportes − retiros).
+  // Si no hay ningún movimiento ese mes, devuelve null (= "sin registrar").
+  var hasAny = false;
+  ahorroMov.forEach(function(mv){
+    var d = new Date(mv.fecha + 'T00:00:00');
+    if(d.getFullYear()===y && d.getMonth()===m) hasAny = true;
+  });
+  if(!hasAny) return null;
+  return ahorroNetoMes(y, m);
 }
 
+// Conservada por retrocompatibilidad — ya no se usa desde la UI en Fase 2.
 function setAhorroReal(y, m, val){
   var yk = String(y), mk = String(m);
   if(val === null || val === '' || isNaN(val)){
@@ -1587,15 +1775,272 @@ function changeAhorroYear(delta){
 }
 
 function renderAhorro(){
-  // Render de la pestaña completa: label de año, métricas, gráfico, tabla, metas
+  // Render de la pestaña completa: hero, banner, label de año, métricas, gráfico, tabla, metas
   var yLabel = document.getElementById('ahorro-year-label');
   if(yLabel) yLabel.textContent = ahorroSelectedYear;
 
+  renderAhorroHero();
+  renderAhorroInitBanner();
   renderAhorroSummary();
   renderAhorroChart();
   renderAhorroTable();
   renderGoals();  // metas al final, funcionalidad existente
 }
+
+// ── HERO: saldo total acumulado ─────────────────────────────────────────────
+function renderAhorroHero(){
+  var saldoEl = document.getElementById('ahorro-hero-saldo');
+  var subEl   = document.getElementById('ahorro-hero-sub');
+  if(!saldoEl) return;
+
+  var saldo = ahorroSaldoTotal();
+  var nMovs = ahorroMov.length;
+
+  if(nMovs === 0){
+    saldoEl.textContent = fmt(0);
+    saldoEl.style.color = 'var(--text3)';
+    if(subEl) subEl.textContent = 'Sin movimientos registrados todavía';
+  } else {
+    saldoEl.textContent = fmt(saldo);
+    saldoEl.style.color = saldo >= 0 ? 'var(--text)' : 'var(--red)';
+    if(subEl) subEl.textContent = nMovs + (nMovs === 1 ? ' movimiento registrado' : ' movimientos registrados');
+  }
+}
+
+// ── BANNER de saldo inicial ─────────────────────────────────────────────────
+function renderAhorroInitBanner(){
+  var banner = document.getElementById('ahorro-init-banner');
+  if(!banner) return;
+  banner.style.display = ahorroInitDone ? 'none' : 'flex';
+}
+
+function ahorroDismissInitBanner(){
+  // "Más tarde" = ocultar banner esta sesión pero NO marcar como hecho.
+  // Volverá a aparecer al recargar. Así evita ser persistente y molesto, pero recuerda.
+  var b = document.getElementById('ahorro-init-banner');
+  if(b) b.style.display = 'none';
+}
+
+// ── MODAL: Saldo inicial ────────────────────────────────────────────────────
+function ahorroOpenInitialModal(){
+  var modal = document.getElementById('ahorro-init-modal');
+  var inp = document.getElementById('ahorro-init-input');
+  var fecha = document.getElementById('ahorro-init-date');
+  if(!modal) return;
+
+  // Pre-rellenar fecha con hoy
+  var today = new Date();
+  var iso = today.getFullYear() + '-' +
+            String(today.getMonth()+1).padStart(2,'0') + '-' +
+            String(today.getDate()).padStart(2,'0');
+  if(fecha) fecha.value = iso;
+  if(inp) inp.value = '';
+
+  modal.style.display = 'flex';
+  setTimeout(function(){ if(inp) inp.focus(); }, 50);
+}
+
+function ahorroCloseInitialModal(){
+  var modal = document.getElementById('ahorro-init-modal');
+  if(modal) modal.style.display = 'none';
+}
+
+function ahorroSaveInitial(){
+  var inp = document.getElementById('ahorro-init-input');
+  var fechaEl = document.getElementById('ahorro-init-date');
+  var raw = inp ? inp.value.trim() : '';
+  var fecha = fechaEl ? fechaEl.value : '';
+
+  if(raw === ''){ alert('Introduce el monto inicial.'); return; }
+  var monto = parseFloat(raw.replace(',', '.'));
+  if(isNaN(monto) || monto < 0){ alert('Monto inválido.'); return; }
+  if(!fecha){ alert('Selecciona una fecha.'); return; }
+
+  // Registrar movimiento tipo "inicial"
+  ahorroMov.push({
+    id: ahorroNewId(),
+    tipo: 'inicial',
+    fecha: fecha,
+    monto: monto,
+    categoria: null,
+    eficiencia: null,
+    nota: 'Saldo inicial'
+  });
+  ahorroInitDone = true;
+  saveAhorroMov();
+  saveAhorroInit();
+
+  ahorroCloseInitialModal();
+  renderAhorro();
+}
+
+// ── MODAL: Nuevo movimiento ─────────────────────────────────────────────────
+// Estado del modal
+var ahorroMovState = { tipo:'aporte', eficiencia:null, editingId:null };
+
+function ahorroOpenMovModal(defaultType){
+  var modal = document.getElementById('ahorro-mov-modal');
+  if(!modal) return;
+
+  ahorroMovState = { tipo: (defaultType === 'retiro' ? 'retiro' : 'aporte'), eficiencia:null, editingId:null };
+
+  // Título
+  var title = document.getElementById('ahorro-mov-modal-title');
+  if(title) title.textContent = 'Nuevo movimiento';
+
+  // Reset campos
+  var montoEl = document.getElementById('ahorro-mov-monto');
+  var fechaEl = document.getElementById('ahorro-mov-fecha');
+  var notaEl  = document.getElementById('ahorro-mov-nota');
+  if(montoEl) montoEl.value = '';
+  if(notaEl)  notaEl.value  = '';
+
+  // Fecha pre-rellena: hoy
+  var today = new Date();
+  var iso = today.getFullYear() + '-' +
+            String(today.getMonth()+1).padStart(2,'0') + '-' +
+            String(today.getDate()).padStart(2,'0');
+  if(fechaEl) fechaEl.value = iso;
+
+  // Rellenar select de categorías
+  ahorroRenderCatSelect();
+
+  // Configurar UI según tipo
+  ahorroSetMovType(ahorroMovState.tipo);
+
+  // Limpiar error
+  var err = document.getElementById('ahorro-mov-error');
+  if(err){ err.style.display='none'; err.textContent=''; }
+
+  modal.style.display = 'flex';
+  setTimeout(function(){ if(montoEl) montoEl.focus(); }, 50);
+}
+
+function ahorroCloseMovModal(){
+  var modal = document.getElementById('ahorro-mov-modal');
+  if(modal) modal.style.display = 'none';
+}
+
+function ahorroRenderCatSelect(){
+  var sel = document.getElementById('ahorro-mov-cat');
+  if(!sel) return;
+  var html = '<option value="">— sin categoría —</option>';
+  ahorroCats.forEach(function(c){
+    html += '<option value="' + c.id + '">' + c.icono + ' ' + escHtml(c.nombre) + '</option>';
+  });
+  sel.innerHTML = html;
+}
+
+function ahorroSetMovType(tipo){
+  ahorroMovState.tipo = tipo;
+
+  // Actualizar segmented
+  document.querySelectorAll('#ahorro-mov-type-tabs button').forEach(function(btn){
+    var t = btn.getAttribute('data-type');
+    if(t === tipo){
+      btn.style.background = 'var(--surface)';
+      btn.style.color = 'var(--text)';
+      btn.style.boxShadow = 'var(--shadow)';
+    } else {
+      btn.style.background = 'transparent';
+      btn.style.color = 'var(--text2)';
+      btn.style.boxShadow = 'none';
+    }
+  });
+
+  // Mostrar/ocultar eficiencia
+  var eficWrap = document.getElementById('ahorro-mov-efic-wrap');
+  var catReq   = document.getElementById('ahorro-mov-cat-required');
+  if(eficWrap) eficWrap.style.display = (tipo === 'retiro') ? 'block' : 'none';
+  // En 2A la categoría queda opcional para ambos. En 2B se puede hacer obligatoria en retiro si se quiere.
+  if(catReq) catReq.textContent = '(opcional)';
+}
+
+function ahorroSetEfic(efic){
+  ahorroMovState.eficiencia = efic;
+  var map = {
+    util: { bg:'rgba(52,211,153,.15)', border:'var(--green)', color:'var(--green)' },
+    justificable: { bg:'rgba(251,191,36,.15)', border:'var(--amber)', color:'var(--amber)' },
+    innecesario: { bg:'rgba(248,113,113,.15)', border:'var(--red)', color:'var(--red)' }
+  };
+  document.querySelectorAll('#ahorro-mov-efic-tabs button').forEach(function(btn){
+    var e = btn.getAttribute('data-efic');
+    if(e === efic){
+      var s = map[e];
+      btn.style.background = s.bg;
+      btn.style.borderColor = s.border;
+      btn.style.color = s.color;
+      btn.style.fontWeight = '600';
+    } else {
+      btn.style.background = 'transparent';
+      btn.style.borderColor = 'var(--border2)';
+      btn.style.color = 'var(--text2)';
+      btn.style.fontWeight = '500';
+    }
+  });
+}
+
+function ahorroSaveMov(){
+  var montoEl = document.getElementById('ahorro-mov-monto');
+  var fechaEl = document.getElementById('ahorro-mov-fecha');
+  var catEl   = document.getElementById('ahorro-mov-cat');
+  var notaEl  = document.getElementById('ahorro-mov-nota');
+  var err     = document.getElementById('ahorro-mov-error');
+
+  function showErr(msg){
+    if(err){ err.textContent = msg; err.style.display = 'block'; }
+    else alert(msg);
+  }
+
+  var tipo = ahorroMovState.tipo;
+  var raw  = montoEl ? montoEl.value.trim() : '';
+  if(raw === ''){ showErr('Introduce el monto.'); return; }
+  var monto = parseFloat(raw.replace(',', '.'));
+  if(isNaN(monto) || monto <= 0){ showErr('El monto debe ser un número positivo.'); return; }
+
+  var fecha = fechaEl ? fechaEl.value : '';
+  if(!fecha){ showErr('Selecciona una fecha.'); return; }
+
+  // Eficiencia obligatoria si retiro
+  var efic = null;
+  if(tipo === 'retiro'){
+    if(!ahorroMovState.eficiencia){
+      showErr('Marca la eficiencia del retiro (Útil, Justificable o Innecesario).');
+      return;
+    }
+    efic = ahorroMovState.eficiencia;
+  }
+
+  var categoria = catEl && catEl.value ? catEl.value : null;
+  var nota = notaEl ? notaEl.value.trim() : '';
+
+  // Aviso suave: retiro mayor que saldo actual (no bloqueante)
+  if(tipo === 'retiro'){
+    var saldo = ahorroSaldoTotal();
+    if(monto > saldo){
+      if(!confirm('Este retiro (' + fmt(monto) + ') excede tu saldo actual (' + fmt(saldo) + '). ¿Registrarlo igualmente?')){
+        return;
+      }
+    }
+  }
+
+  ahorroMov.push({
+    id: ahorroNewId(),
+    tipo: tipo,
+    fecha: fecha,
+    monto: monto,
+    categoria: categoria,
+    eficiencia: efic,
+    nota: nota
+  });
+  saveAhorroMov();
+
+  ahorroCloseMovModal();
+  renderAhorro();
+}
+// ═══════════════════════════════════════════════════════════════════════════
+// FIN AHORRO Fase 2A
+// ═══════════════════════════════════════════════════════════════════════════
 
 function renderAhorroSummary(){
   var y = ahorroSelectedYear;
@@ -1744,7 +2189,7 @@ function renderAhorroTable(){
     var planTxt = plan === 0 ? '<span style="color:var(--text3)">—</span>' : fmt(plan);
     var realTxt, realColor = '';
     if(real === null){
-      realTxt = '<span style="color:var(--text3)">+ registrar</span>';
+      realTxt = '<span style="color:var(--text3)">—</span>';
     } else {
       realTxt = fmt(real);
       realColor = 'color:' + (real >= 0 ? 'var(--green)' : 'var(--red)') + ';';
@@ -1762,11 +2207,7 @@ function renderAhorroTable(){
     html += '<tr style="' + rowOpacity + '">'+
       '<td style="' + TD + 'font-weight:500">' + MONTHS_ES[m] + '</td>'+
       '<td style="' + TDR + 'color:var(--text2)">' + planTxt + '</td>'+
-      '<td class="ahorro-real-cell" data-year="' + y + '" data-month="' + m + '" '+
-        'onclick="editAhorroReal(' + y + ',' + m + ', this)" '+
-        'style="' + TDR + realColor + 'cursor:pointer;transition:background .1s" '+
-        'onmouseover="this.style.background=\'var(--bg2)\'" '+
-        'onmouseout="this.style.background=\'transparent\'">' + realTxt + '</td>'+
+      '<td style="' + TDR + realColor + '">' + realTxt + '</td>'+
       '<td style="' + TDR + diffColor + '">' + diffTxt + '</td>'+
     '</tr>';
   }
@@ -5475,6 +5916,9 @@ async function fbSaveData(){
       currencyConfig: JSON.stringify(currencyConfig),
       pagosChecked: JSON.stringify(pagosChecked),
       ahorroReal: JSON.stringify(ahorroReal),
+      ahorroMov: JSON.stringify(ahorroMov),
+      ahorroCats: JSON.stringify(ahorroCats),
+      ahorroInitDone: ahorroInitDone ? 'true' : 'false',
       updatedAt: now
     };
     var ref = window._fbDoc(window._fbDb, 'users', fbUser.uid);
@@ -5520,6 +5964,11 @@ async function fbLoadData(){
       if(data.currencyConfig) currencyConfig = JSON.parse(data.currencyConfig);
       if(data.pagosChecked) pagosChecked = JSON.parse(data.pagosChecked);
       if(data.ahorroReal) ahorroReal = JSON.parse(data.ahorroReal);
+      if(data.ahorroMov) ahorroMov = JSON.parse(data.ahorroMov);
+      if(data.ahorroCats) ahorroCats = JSON.parse(data.ahorroCats);
+      if(typeof data.ahorroInitDone !== 'undefined'){
+        ahorroInitDone = (data.ahorroInitDone === true || data.ahorroInitDone === 'true');
+      }
       // Sincronizar timestamp local
       try{localStorage.setItem('fin_local_ts', data.updatedAt);}catch(e){}
       return true;
@@ -5581,7 +6030,8 @@ window.onFirebaseAuthChange = async function(user){
       // Cambio de cuenta — limpiar localStorage para que Firebase siempre gane
       var keysToRemove = ['fin_bstruct','fin_bvals','fin_bnotes','fin_tx','fin_creditos',
         'fin_goals','fin_pagos_checked','fin_pagos_spent','fin_currency',
-        'fin_bsumexp','fin_local_ts','fin_pending_sync','fin_ahorro_real'];
+        'fin_bsumexp','fin_local_ts','fin_pending_sync','fin_ahorro_real',
+        'fin_ahorro_mov','fin_ahorro_cats','fin_ahorro_init'];
       keysToRemove.forEach(function(k){ localStorage.removeItem(k); });
       console.log('Cambio de cuenta → localStorage limpiado, cargando de Firebase');
     }
@@ -5620,7 +6070,8 @@ async function restablecerCuenta(){
   // Borrar localStorage
   var keysToRemove = ['fin_bstruct','fin_bvals','fin_bnotes','fin_tx','fin_creditos',
     'fin_goals','fin_pagos_checked','fin_pagos_spent','fin_currency',
-    'fin_bsumexp','fin_local_ts','fin_pending_sync','fin_cats','fin_ahorro_real'];
+    'fin_bsumexp','fin_local_ts','fin_pending_sync','fin_cats','fin_ahorro_real',
+    'fin_ahorro_mov','fin_ahorro_cats','fin_ahorro_init'];
   keysToRemove.forEach(function(k){ localStorage.removeItem(k); });
 
   // Guardar plantilla por defecto en Firestore directamente
@@ -5637,6 +6088,9 @@ async function restablecerCuenta(){
         currencyConfig: JSON.stringify({code:'EUR',symbol:'€',name:'Euro',position:'after'}),
         pagosChecked: JSON.stringify({}),
         ahorroReal: JSON.stringify({}),
+        ahorroMov: JSON.stringify([]),
+        ahorroCats: JSON.stringify(DEFAULT_AHORRO_CATS),
+        ahorroInitDone: 'false',
         updatedAt: now
       };
       var ref = window._fbDoc(window._fbDb, 'users', fbUser.uid);
