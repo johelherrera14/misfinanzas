@@ -1179,7 +1179,7 @@
       <div class="chart-wrap" style="height:240px"><canvas id="chartAhorro"></canvas></div>
       <div class="legend" style="margin-top:10px">
         <span><span class="legend-dot" style="background:#34D399"></span>Planificado</span>
-        <span><span class="legend-dot" style="background:#FF6B35"></span>Real</span>
+        <span><span class="legend-dot" style="background:#FF6B35"></span>Saldo real</span>
       </div>
     </div>
 
@@ -2483,12 +2483,111 @@ function renderAhorroChart(){
   if(!canvas) return;
   var y = ahorroSelectedYear;
 
-  var labels = MONTHS_SHORT.map(function(m){ return m.toLowerCase(); });
-  var planData = [], realData = [];
+  // ── 1) Calcular saldo de arranque: suma de todos los movimientos anteriores al año ──
+  var saldoInicio = 0;
+  ahorroMov.forEach(function(mv){
+    var d = new Date(mv.fecha + 'T00:00:00');
+    if(d.getFullYear() < y){
+      if(mv.tipo === 'retiro') saldoInicio -= mv.monto;
+      else saldoInicio += mv.monto;
+    }
+  });
+
+  // ── 2) Generar etiquetas día a día del año (366 por si es bisiesto) ──
+  var isLeap = (y % 4 === 0 && y % 100 !== 0) || (y % 400 === 0);
+  var daysInYear = isLeap ? 366 : 365;
+  var labels = [];
+  for(var i = 0; i < daysInYear; i++){
+    var d0 = new Date(y, 0, 1);
+    d0.setDate(d0.getDate() + i);
+    // Etiqueta solo el día 1 de cada mes (para que Chart.js pueda rotarlas),
+    // el resto queda vacío. Así visualmente en el eje X solo se ven los meses.
+    if(d0.getDate() === 1){
+      labels.push(MONTHS_SHORT[d0.getMonth()].toLowerCase());
+    } else {
+      labels.push('');
+    }
+  }
+
+  // ── 3) Serie "Saldo real": arranca en saldoInicio y varía con cada movimiento ──
+  // Agrupamos movimientos por día del año (índice 0-364/365)
+  function dayOfYear(date){
+    var start = new Date(date.getFullYear(), 0, 1);
+    var diff = date - start;
+    return Math.floor(diff / 86400000);
+  }
+  var deltaPorDia = new Array(daysInYear).fill(0);
+  var hayMovimientoHastaDia = new Array(daysInYear).fill(false);
+  var ultimoDiaConMov = -1;
+
+  ahorroMov.forEach(function(mv){
+    var d = new Date(mv.fecha + 'T00:00:00');
+    if(d.getFullYear() !== y) return;
+    var idx = dayOfYear(d);
+    if(idx < 0 || idx >= daysInYear) return;
+    var delta = (mv.tipo === 'retiro') ? -mv.monto : mv.monto;
+    deltaPorDia[idx] += delta;
+    hayMovimientoHastaDia[idx] = true;
+    if(idx > ultimoDiaConMov) ultimoDiaConMov = idx;
+  });
+
+  // Saldo acumulado día a día. Hasta que no haya ningún movimiento en el año,
+  // la línea parte de saldoInicio. Después de ultimoDiaConMov dejamos null
+  // (no extendemos hacia el futuro la línea).
+  var saldoData = [];
+  var saldoActual = saldoInicio;
+  var haHabidoMov = false;
+  for(var i = 0; i < daysInYear; i++){
+    if(deltaPorDia[i] !== 0 || hayMovimientoHastaDia[i]){
+      saldoActual += deltaPorDia[i];
+      haHabidoMov = true;
+    }
+    if(ultimoDiaConMov === -1){
+      // Año sin movimientos: mostrar línea plana en saldoInicio si había saldo previo
+      saldoData.push(saldoInicio !== 0 ? saldoInicio : null);
+    } else if(i <= ultimoDiaConMov){
+      saldoData.push(saldoActual);
+    } else {
+      saldoData.push(null);
+    }
+  }
+
+  // ── 4) Serie "Planificado acumulado": parte del mismo saldoInicio y sube por meses ──
+  var planData = [];
+  var planAcum = saldoInicio;
+  var planPorMes = [];
   for(var m = 0; m < 12; m++){
-    planData.push(calcAhorroPlanificado(y, m));
-    var r = getAhorroReal(y, m);
-    realData.push(r === null ? null : r);
+    planPorMes.push(calcAhorroPlanificado(y, m));
+  }
+  // El planificado sube en el último día de cada mes (escalón). Así el 1 de febrero
+  // ya refleja el ahorro planeado de enero completo.
+  for(var i = 0; i < daysInYear; i++){
+    var d0 = new Date(y, 0, 1);
+    d0.setDate(d0.getDate() + i);
+    var mes = d0.getMonth();
+    var dia = d0.getDate();
+    var totalDiasMes = new Date(y, mes+1, 0).getDate();
+    // Progresión lineal dentro del mes: el ahorro del mes se acumula proporcionalmente
+    // (así la línea queda continua en vez de escalonada brusca)
+    var acumHastaMesAnterior = 0;
+    for(var mm = 0; mm < mes; mm++) acumHastaMesAnterior += planPorMes[mm];
+    var fraccionMes = dia / totalDiasMes;
+    var valor = saldoInicio + acumHastaMesAnterior + planPorMes[mes] * fraccionMes;
+    planData.push(valor);
+  }
+
+  // ── 5) Puntos destacados: solo en los días con movimiento real ──
+  // Configuramos el array de radios por punto para que solo se muestren esos.
+  var pointRadii = [];
+  var pointHoverRadii = [];
+  for(var i = 0; i < daysInYear; i++){
+    if(hayMovimientoHastaDia[i]){
+      pointRadii.push(4);
+      pointHoverRadii.push(6);
+    } else {
+      pointRadii.push(0);
+      pointHoverRadii.push(4);
+    }
   }
 
   if(ahorroChart) ahorroChart.destroy();
@@ -2498,6 +2597,13 @@ function renderAhorroChart(){
   var gReal = makeLineGradient(ctx, '#FF6B35', 240);
   var dark = document.documentElement.getAttribute('data-theme') === 'dark';
   Chart.defaults.font.family = "'Space Grotesk', sans-serif";
+
+  // Formateador de fecha para tooltip
+  function fechaTooltip(idx){
+    var d0 = new Date(y, 0, 1);
+    d0.setDate(d0.getDate() + idx);
+    return String(d0.getDate()).padStart(2,'0') + ' ' + MONTHS_SHORT[d0.getMonth()].toLowerCase() + ' ' + y;
+  }
 
   ahorroChart = new Chart(ctx, {
     type: 'line',
@@ -2509,35 +2615,42 @@ function renderAhorroChart(){
           data: planData,
           borderColor: '#34D399',
           backgroundColor: gPlan,
-          tension: .4, fill: true,
-          pointRadius: 4, pointHoverRadius: 6,
-          pointBackgroundColor: '#34D399',
-          pointBorderColor: dark ? '#17171A' : '#fff',
-          pointBorderWidth: 2, borderWidth: 2.5,
-          spanGaps: false
+          tension: 0, fill: true,
+          pointRadius: 0, pointHoverRadius: 0,
+          borderWidth: 2,
+          borderDash: [4, 4],
+          spanGaps: true
         },
         {
-          label: 'Real',
-          data: realData,
+          label: 'Saldo real',
+          data: saldoData,
           borderColor: '#FF6B35',
           backgroundColor: gReal,
-          tension: .4, fill: true,
-          pointRadius: 4, pointHoverRadius: 6,
+          tension: 0, fill: true,
+          stepped: 'before',
+          pointRadius: pointRadii,
+          pointHoverRadius: pointHoverRadii,
           pointBackgroundColor: '#FF6B35',
           pointBorderColor: dark ? '#17171A' : '#fff',
-          pointBorderWidth: 2, borderWidth: 2.5,
+          pointBorderWidth: 2,
+          borderWidth: 2.5,
           spanGaps: false
         }
       ]
     },
     options: {
       responsive: true, maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
       plugins: {
         legend: { display: false },
         tooltip: {
           backgroundColor: ct.tipBg, titleColor: ct.tick, bodyColor: ct.tipText,
           borderColor: ct.tipBorder, borderWidth: 1, padding: 10, cornerRadius: 10,
           callbacks: {
+            title: function(items){
+              if(!items || !items.length) return '';
+              return fechaTooltip(items[0].dataIndex);
+            },
             label: function(c){
               if(c.parsed.y === null || c.parsed.y === undefined) return ' ' + c.dataset.label + ': —';
               return ' ' + c.dataset.label + ': ' + fmt(c.parsed.y);
@@ -2546,8 +2659,28 @@ function renderAhorroChart(){
         }
       },
       scales: {
-        x: { grid: { display: false }, ticks: { font: { size: 11 }, color: ct.tick } },
-        y: { grid: { color: ct.grid }, ticks: { callback: function(v){ return fmt(v); }, font: { size: 11 }, color: ct.tick } }
+        x: {
+          grid: { display: false },
+          ticks: {
+            font: { size: 11 },
+            color: ct.tick,
+            autoSkip: false,
+            maxRotation: 0,
+            minRotation: 0,
+            callback: function(val, idx){
+              // Solo mostramos la etiqueta si tiene texto (mes 1 del día)
+              return labels[idx] || null;
+            }
+          }
+        },
+        y: {
+          grid: { color: ct.grid },
+          ticks: {
+            callback: function(v){ return fmt(v); },
+            font: { size: 11 },
+            color: ct.tick
+          }
+        }
       }
     }
   });
