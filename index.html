@@ -1188,8 +1188,8 @@
       <div style="margin-top:10px;font-size:11px;color:var(--text3)">💡 El <b>Real</b> es la suma de tus aportes menos los retiros del mes. Para modificarlo, añade movimientos.</div>
     </div>
 
-    <!-- Lista de movimientos del año (placeholder Sub-fase 2A, completo en 2B) -->
-    <div class="card" id="ahorro-mov-card" style="display:none">
+    <!-- Lista de movimientos del año (2B) -->
+    <div class="card" id="ahorro-mov-card">
       <div class="card-title">Movimientos del año</div>
       <div id="ahorro-mov-list"></div>
     </div>
@@ -1784,6 +1784,7 @@ function renderAhorro(){
   renderAhorroSummary();
   renderAhorroChart();
   renderAhorroTable();
+  renderAhorroMovList();
   renderGoals();  // metas al final, funcionalidad existente
 }
 
@@ -1823,10 +1824,14 @@ function ahorroDismissInitBanner(){
 
 // ── MODAL: Saldo inicial ────────────────────────────────────────────────────
 function ahorroOpenInitialModal(){
+  ahorroInitEditingId = null;  // modo creación
   var modal = document.getElementById('ahorro-init-modal');
   var inp = document.getElementById('ahorro-init-input');
   var fecha = document.getElementById('ahorro-init-date');
+  var title = modal ? modal.querySelector('.modal-title') : null;
   if(!modal) return;
+
+  if(title) title.textContent = 'Configura tu saldo inicial';
 
   // Pre-rellenar fecha con hoy
   var today = new Date();
@@ -1843,6 +1848,7 @@ function ahorroOpenInitialModal(){
 function ahorroCloseInitialModal(){
   var modal = document.getElementById('ahorro-init-modal');
   if(modal) modal.style.display = 'none';
+  ahorroInitEditingId = null;
 }
 
 function ahorroSaveInitial(){
@@ -1856,19 +1862,31 @@ function ahorroSaveInitial(){
   if(isNaN(monto) || monto < 0){ alert('Monto inválido.'); return; }
   if(!fecha){ alert('Selecciona una fecha.'); return; }
 
-  // Registrar movimiento tipo "inicial"
-  ahorroMov.push({
-    id: ahorroNewId(),
-    tipo: 'inicial',
-    fecha: fecha,
-    monto: monto,
-    categoria: null,
-    eficiencia: null,
-    nota: 'Saldo inicial'
-  });
-  ahorroInitDone = true;
+  if(ahorroInitEditingId){
+    // Modo edición: actualizar movimiento inicial existente
+    for(var i=0;i<ahorroMov.length;i++){
+      if(ahorroMov[i].id === ahorroInitEditingId){
+        ahorroMov[i].monto = monto;
+        ahorroMov[i].fecha = fecha;
+        break;
+      }
+    }
+    ahorroInitEditingId = null;
+  } else {
+    // Modo creación: registrar movimiento tipo "inicial"
+    ahorroMov.push({
+      id: ahorroNewId(),
+      tipo: 'inicial',
+      fecha: fecha,
+      monto: monto,
+      categoria: null,
+      eficiencia: null,
+      nota: 'Saldo inicial'
+    });
+    ahorroInitDone = true;
+    saveAhorroInit();
+  }
   saveAhorroMov();
-  saveAhorroInit();
 
   ahorroCloseInitialModal();
   renderAhorro();
@@ -1878,35 +1896,56 @@ function ahorroSaveInitial(){
 // Estado del modal
 var ahorroMovState = { tipo:'aporte', eficiencia:null, editingId:null };
 
-function ahorroOpenMovModal(defaultType){
+function ahorroOpenMovModal(defaultType, editingMov){
   var modal = document.getElementById('ahorro-mov-modal');
   if(!modal) return;
 
-  ahorroMovState = { tipo: (defaultType === 'retiro' ? 'retiro' : 'aporte'), eficiencia:null, editingId:null };
+  var isEdit = !!editingMov;
+
+  ahorroMovState = {
+    tipo: isEdit ? editingMov.tipo : (defaultType === 'retiro' ? 'retiro' : 'aporte'),
+    eficiencia: isEdit ? (editingMov.eficiencia || null) : null,
+    editingId: isEdit ? editingMov.id : null
+  };
 
   // Título
   var title = document.getElementById('ahorro-mov-modal-title');
-  if(title) title.textContent = 'Nuevo movimiento';
+  if(title) title.textContent = isEdit ? 'Editar movimiento' : 'Nuevo movimiento';
 
-  // Reset campos
+  // Campos
   var montoEl = document.getElementById('ahorro-mov-monto');
   var fechaEl = document.getElementById('ahorro-mov-fecha');
   var notaEl  = document.getElementById('ahorro-mov-nota');
-  if(montoEl) montoEl.value = '';
-  if(notaEl)  notaEl.value  = '';
+  var catEl   = document.getElementById('ahorro-mov-cat');
 
-  // Fecha pre-rellena: hoy
-  var today = new Date();
-  var iso = today.getFullYear() + '-' +
-            String(today.getMonth()+1).padStart(2,'0') + '-' +
-            String(today.getDate()).padStart(2,'0');
-  if(fechaEl) fechaEl.value = iso;
+  if(isEdit){
+    if(montoEl) montoEl.value = editingMov.monto;
+    if(fechaEl) fechaEl.value = editingMov.fecha;
+    if(notaEl)  notaEl.value  = editingMov.nota || '';
+  } else {
+    if(montoEl) montoEl.value = '';
+    if(notaEl)  notaEl.value  = '';
+    var today = new Date();
+    var iso = today.getFullYear() + '-' +
+              String(today.getMonth()+1).padStart(2,'0') + '-' +
+              String(today.getDate()).padStart(2,'0');
+    if(fechaEl) fechaEl.value = iso;
+  }
 
-  // Rellenar select de categorías
+  // Rellenar select de categorías y seleccionar la actual si edita
   ahorroRenderCatSelect();
+  if(catEl) catEl.value = (isEdit && editingMov.categoria) ? editingMov.categoria : '';
 
   // Configurar UI según tipo
   ahorroSetMovType(ahorroMovState.tipo);
+
+  // Si edita y tipo retiro, pre-marcar eficiencia
+  if(isEdit && editingMov.tipo === 'retiro' && editingMov.eficiencia){
+    ahorroSetEfic(editingMov.eficiencia);
+  }
+
+  // Mostrar / ocultar botón "Eliminar" en el footer (solo en edición)
+  ahorroRenderMovFooter(isEdit);
 
   // Limpiar error
   var err = document.getElementById('ahorro-mov-error');
@@ -1914,6 +1953,37 @@ function ahorroOpenMovModal(defaultType){
 
   modal.style.display = 'flex';
   setTimeout(function(){ if(montoEl) montoEl.focus(); }, 50);
+}
+
+function ahorroRenderMovFooter(isEdit){
+  // Inserta/quita un botón "Eliminar" al principio del footer según sea edición o no
+  var modal = document.getElementById('ahorro-mov-modal');
+  if(!modal) return;
+  var footer = modal.querySelector('.modal-footer');
+  if(!footer) return;
+
+  // Eliminar botón previo si existía
+  var existing = footer.querySelector('.ahorro-mov-delete-btn');
+  if(existing) existing.remove();
+
+  if(isEdit){
+    var btn = document.createElement('button');
+    btn.className = 'ahorro-mov-delete-btn';
+    btn.type = 'button';
+    btn.textContent = '🗑 Eliminar';
+    btn.style.cssText = 'padding:10px 14px;background:transparent;color:var(--red);'+
+      'border:1px solid var(--border2);border-radius:var(--radius);'+
+      'font-family:\'DM Sans\',sans-serif;font-size:13px;font-weight:500;cursor:pointer;'+
+      'transition:background .15s';
+    btn.onmouseover = function(){ this.style.background = 'var(--red-bg)'; };
+    btn.onmouseout  = function(){ this.style.background = 'transparent'; };
+    btn.onclick = function(){
+      var id = ahorroMovState.editingId;
+      ahorroCloseMovModal();
+      if(id) ahorroDeleteMov(id);
+    };
+    footer.insertBefore(btn, footer.firstChild);
+  }
 }
 
 function ahorroCloseMovModal(){
@@ -2024,23 +2094,255 @@ function ahorroSaveMov(){
     }
   }
 
-  ahorroMov.push({
-    id: ahorroNewId(),
-    tipo: tipo,
-    fecha: fecha,
-    monto: monto,
-    categoria: categoria,
-    eficiencia: efic,
-    nota: nota
-  });
+  if(ahorroMovState.editingId){
+    // Modo edición: actualizar movimiento existente
+    for(var i=0;i<ahorroMov.length;i++){
+      if(ahorroMov[i].id === ahorroMovState.editingId){
+        ahorroMov[i].tipo = tipo;
+        ahorroMov[i].fecha = fecha;
+        ahorroMov[i].monto = monto;
+        ahorroMov[i].categoria = categoria;
+        ahorroMov[i].eficiencia = efic;
+        ahorroMov[i].nota = nota;
+        break;
+      }
+    }
+  } else {
+    // Modo creación
+    ahorroMov.push({
+      id: ahorroNewId(),
+      tipo: tipo,
+      fecha: fecha,
+      monto: monto,
+      categoria: categoria,
+      eficiencia: efic,
+      nota: nota
+    });
+  }
   saveAhorroMov();
 
   ahorroCloseMovModal();
   renderAhorro();
 }
-// ═══════════════════════════════════════════════════════════════════════════
-// FIN AHORRO Fase 2A
-// ═══════════════════════════════════════════════════════════════════════════
+// ── 2B: Lista de movimientos agrupados por mes ─────────────────────────────
+// Estado de meses plegados (solo en memoria). Por defecto, el mes actual abierto.
+var ahorroExpandedMonths = null;  // se inicializa en la primera llamada a renderAhorroMovList
+
+function ahorroInitExpandedMonths(){
+  if(ahorroExpandedMonths !== null) return;
+  ahorroExpandedMonths = {};
+  var curM = new Date().getMonth();
+  ahorroExpandedMonths[curM] = true;  // mes actual abierto por defecto
+}
+
+function ahorroToggleMonth(m){
+  ahorroInitExpandedMonths();
+  ahorroExpandedMonths[m] = !ahorroExpandedMonths[m];
+  renderAhorroMovList();
+}
+
+function renderAhorroMovList(){
+  var wrap = document.getElementById('ahorro-mov-list');
+  if(!wrap) return;
+  ahorroInitExpandedMonths();
+
+  var y = ahorroSelectedYear;
+
+  // Agrupar movimientos del año seleccionado por mes
+  var byMonth = {};  // { 0: [mov, mov], 2: [mov] }
+  ahorroMov.forEach(function(mv){
+    var d = new Date(mv.fecha + 'T00:00:00');
+    if(d.getFullYear() !== y) return;
+    var m = d.getMonth();
+    if(!byMonth[m]) byMonth[m] = [];
+    byMonth[m].push(mv);
+  });
+
+  var monthsWithData = Object.keys(byMonth).map(Number).sort(function(a,b){ return b-a; });  // desc: más reciente primero
+
+  if(monthsWithData.length === 0){
+    wrap.innerHTML = '<div style="text-align:center;padding:2rem 1rem;color:var(--text3)">'+
+      '<div style="font-size:32px;margin-bottom:8px">💰</div>'+
+      '<div style="font-size:14px;color:var(--text2);margin-bottom:4px">Sin movimientos en ' + y + '</div>'+
+      '<div style="font-size:12px">Usa el botón <b>+ Movimiento</b> de arriba para añadir el primero.</div>'+
+      '</div>';
+    return;
+  }
+
+  var html = '';
+  monthsWithData.forEach(function(m){
+    var movs = byMonth[m].sort(function(a,b){
+      // Desc por fecha, y si empatan por orden inverso de inserción (el más nuevo al final del array aparece primero)
+      var c = b.fecha.localeCompare(a.fecha);
+      return c !== 0 ? c : 0;
+    });
+    var neto = 0;
+    movs.forEach(function(mv){
+      if(mv.tipo === 'retiro') neto -= mv.monto; else neto += mv.monto;
+    });
+    var expanded = !!ahorroExpandedMonths[m];
+    var arrow = expanded ? '▼' : '▶';
+    var netoColor = neto >= 0 ? 'var(--green)' : 'var(--red)';
+    var netoTxt = (neto >= 0 ? '+' : '') + fmt(neto);
+    var countTxt = movs.length + (movs.length === 1 ? ' movimiento' : ' movimientos');
+
+    html += '<div style="border-bottom:1px solid var(--border);margin-bottom:0">';
+    // Cabecera mes (clicable)
+    html += '<div onclick="ahorroToggleMonth(' + m + ')" '+
+      'style="display:flex;align-items:center;gap:10px;padding:12px 4px;cursor:pointer;user-select:none;transition:background .1s" '+
+      'onmouseover="this.style.background=\'var(--bg2)\'" '+
+      'onmouseout="this.style.background=\'transparent\'">'+
+      '<span style="font-size:11px;color:var(--text3);width:14px;text-align:center">' + arrow + '</span>'+
+      '<div style="flex:1;min-width:0">'+
+        '<div style="font-family:\'Space Grotesk\',sans-serif;font-size:14px;font-weight:600;color:var(--text);text-transform:uppercase;letter-spacing:.03em">' + MONTHS_ES[m] + ' ' + y + '</div>'+
+        '<div style="font-size:11.5px;color:var(--text3);margin-top:2px">' + countTxt + '</div>'+
+      '</div>'+
+      '<div style="font-family:\'Space Grotesk\',sans-serif;font-size:15px;font-weight:600;color:' + netoColor + '">' + netoTxt + '</div>'+
+    '</div>';
+
+    // Items
+    if(expanded){
+      html += '<div style="padding-bottom:8px">';
+      movs.forEach(function(mv){
+        html += renderAhorroMovItem(mv);
+      });
+      html += '</div>';
+    }
+    html += '</div>';
+  });
+
+  wrap.innerHTML = html;
+}
+
+function renderAhorroMovItem(mv){
+  var cat = ahorroGetCat(mv.categoria);
+  var icon, name;
+
+  if(mv.tipo === 'inicial'){
+    icon = '⭐'; name = 'Saldo inicial';
+  } else if(cat){
+    icon = cat.icono; name = cat.nombre;
+  } else {
+    icon = mv.tipo === 'aporte' ? '↗' : '↘';
+    name = mv.tipo === 'aporte' ? 'Aporte' : 'Retiro';
+  }
+
+  var isNeg = mv.tipo === 'retiro';
+  var signo = isNeg ? '-' : '+';
+  var color = isNeg ? 'var(--red)' : 'var(--green)';
+  var monto = signo + fmt(mv.monto);
+
+  // Fecha: día/mes corto
+  var d = new Date(mv.fecha + 'T00:00:00');
+  var fechaTxt = String(d.getDate()).padStart(2,'0') + ' ' + MONTHS_SHORT[d.getMonth()].toLowerCase();
+
+  // Badge eficiencia (solo retiros)
+  var eficBadge = '';
+  if(mv.eficiencia){
+    var eMap = {
+      util:         { icon:'🟢', label:'Útil',         color:'var(--green)' },
+      justificable: { icon:'🟡', label:'Justificable', color:'var(--amber)' },
+      innecesario:  { icon:'🔴', label:'Innecesario',  color:'var(--red)'   }
+    };
+    var e = eMap[mv.eficiencia];
+    if(e){
+      eficBadge = '<span style="font-size:11px;color:' + e.color + ';margin-right:6px" title="' + e.label + '">' + e.icon + '</span>';
+    }
+  }
+
+  var notaHtml = '';
+  if(mv.nota && mv.nota.trim()){
+    notaHtml = '<div style="font-size:11.5px;color:var(--text3);margin-top:2px;padding-left:34px;font-style:italic">"' + escHtml(mv.nota) + '"</div>';
+  }
+
+  // Icono con fondo de color tenue (de la categoría, o neutro)
+  var iconBg = cat ? cat.color + '22' : 'var(--bg2)';
+  var iconBorder = cat ? cat.color : 'var(--border2)';
+
+  return '<div class="ahorro-mov-item" data-mov-id="' + mv.id + '" '+
+    'onclick="ahorroEditMov(\'' + mv.id + '\')" '+
+    'style="padding:10px 8px 10px 8px;border-radius:8px;cursor:pointer;transition:background .1s" '+
+    'onmouseover="this.style.background=\'var(--bg2)\'" '+
+    'onmouseout="this.style.background=\'transparent\'">'+
+    '<div style="display:flex;align-items:center;gap:10px">'+
+      '<div style="width:26px;height:26px;border-radius:50%;background:' + iconBg + ';border:1px solid ' + iconBorder + ';display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0">' + icon + '</div>'+
+      '<div style="flex:1;min-width:0">'+
+        '<div style="font-size:13px;color:var(--text);font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + escHtml(name) + '</div>'+
+        '<div style="font-size:11.5px;color:var(--text3);margin-top:1px">' + fechaTxt + '</div>'+
+      '</div>'+
+      eficBadge +
+      '<div style="font-family:\'Space Grotesk\',sans-serif;font-size:14px;font-weight:600;color:' + color + ';white-space:nowrap;margin-right:4px">' + monto + '</div>'+
+      '<button onclick="event.stopPropagation();ahorroDeleteMov(\'' + mv.id + '\')" title="Eliminar" '+
+        'style="background:none;border:none;color:var(--text3);font-size:16px;padding:4px 6px;border-radius:6px;cursor:pointer;transition:color .15s,background .15s;line-height:1;flex-shrink:0" '+
+        'onmouseover="this.style.color=\'var(--red)\';this.style.background=\'var(--red-bg)\'" '+
+        'onmouseout="this.style.color=\'var(--text3)\';this.style.background=\'transparent\'">🗑</button>'+
+    '</div>'+
+    notaHtml +
+  '</div>';
+}
+
+function ahorroEditMov(id){
+  var mv = null;
+  for(var i=0;i<ahorroMov.length;i++){ if(ahorroMov[i].id === id){ mv = ahorroMov[i]; break; } }
+  if(!mv) return;
+
+  // Saldo inicial tiene un modal propio (el de configurar inicial)
+  if(mv.tipo === 'inicial'){
+    ahorroOpenInitialModalEdit(mv);
+    return;
+  }
+
+  ahorroOpenMovModal(mv.tipo, mv);
+}
+
+function ahorroDeleteMov(id){
+  var mv = null, idx = -1;
+  for(var i=0;i<ahorroMov.length;i++){ if(ahorroMov[i].id === id){ mv = ahorroMov[i]; idx = i; break; } }
+  if(!mv) return;
+
+  var msg;
+  if(mv.tipo === 'inicial'){
+    msg = 'Vas a eliminar tu saldo inicial de ' + fmt(mv.monto) + '.\nEl saldo total bajará en ese monto y volverá a aparecer el banner de configuración. ¿Seguro?';
+  } else {
+    var accion = mv.tipo === 'aporte' ? 'aporte' : 'retiro';
+    var d = new Date(mv.fecha + 'T00:00:00');
+    var fechaTxt = String(d.getDate()).padStart(2,'0') + '/' + String(d.getMonth()+1).padStart(2,'0') + '/' + d.getFullYear();
+    msg = '¿Eliminar este ' + accion + ' de ' + fmt(mv.monto) + ' del ' + fechaTxt + '?';
+  }
+  if(!confirm(msg)) return;
+
+  ahorroMov.splice(idx, 1);
+
+  // Si eliminamos el saldo inicial, desmarcamos la flag para que vuelva a aparecer el banner
+  if(mv.tipo === 'inicial'){
+    // Solo si no queda ningún otro movimiento inicial
+    var otroInicial = ahorroMov.some(function(x){ return x.tipo === 'inicial'; });
+    if(!otroInicial){
+      ahorroInitDone = false;
+      saveAhorroInit();
+    }
+  }
+
+  saveAhorroMov();
+  renderAhorro();
+}
+
+// Editar saldo inicial — reutiliza el modal de configurar inicial
+var ahorroInitEditingId = null;
+
+function ahorroOpenInitialModalEdit(mv){
+  ahorroInitEditingId = mv.id;
+  var modal = document.getElementById('ahorro-init-modal');
+  var inp = document.getElementById('ahorro-init-input');
+  var fecha = document.getElementById('ahorro-init-date');
+  var title = modal ? modal.querySelector('.modal-title') : null;
+  if(title) title.textContent = 'Editar saldo inicial';
+  if(inp) inp.value = mv.monto;
+  if(fecha) fecha.value = mv.fecha;
+  if(modal) modal.style.display = 'flex';
+  setTimeout(function(){ if(inp){ inp.focus(); inp.select(); } }, 50);
+}
+
 
 function renderAhorroSummary(){
   var y = ahorroSelectedYear;
