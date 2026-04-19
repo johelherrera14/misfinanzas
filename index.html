@@ -2509,46 +2509,59 @@ function renderAhorroChart(){
     }
   }
 
-  // ── 3) Serie "Saldo real": arranca en saldoInicio y varía con cada movimiento ──
-  // Agrupamos movimientos por día del año (índice 0-364/365)
+  // ── 3) Serie "Saldo real": comienza en el PRIMER movimiento del año ──
+  // Si el año tiene saldo previo (movimientos de años anteriores), la línea
+  // arrancará desde saldoInicio en el día del primer movimiento del año.
+  // Antes de ese primer movimiento la línea queda en null (sin dibujar).
   function dayOfYear(date){
     var start = new Date(date.getFullYear(), 0, 1);
     var diff = date - start;
     return Math.floor(diff / 86400000);
   }
-  var deltaPorDia = new Array(daysInYear).fill(0);
-  var hayMovimientoHastaDia = new Array(daysInYear).fill(false);
-  var ultimoDiaConMov = -1;
 
-  ahorroMov.forEach(function(mv){
-    var d = new Date(mv.fecha + 'T00:00:00');
-    if(d.getFullYear() !== y) return;
-    var idx = dayOfYear(d);
+  // Agrupamos movimientos del año por día
+  var movDelYear = ahorroMov.filter(function(mv){
+    return new Date(mv.fecha + 'T00:00:00').getFullYear() === y;
+  }).sort(function(a,b){ return a.fecha.localeCompare(b.fecha); });
+
+  var deltaPorDia = new Array(daysInYear).fill(0);
+  var diasConMov = {};
+  movDelYear.forEach(function(mv){
+    var idx = dayOfYear(new Date(mv.fecha + 'T00:00:00'));
     if(idx < 0 || idx >= daysInYear) return;
     var delta = (mv.tipo === 'retiro') ? -mv.monto : mv.monto;
     deltaPorDia[idx] += delta;
-    hayMovimientoHastaDia[idx] = true;
-    if(idx > ultimoDiaConMov) ultimoDiaConMov = idx;
+    diasConMov[idx] = true;
   });
 
-  // Saldo acumulado día a día. Hasta que no haya ningún movimiento en el año,
-  // la línea parte de saldoInicio. Después de ultimoDiaConMov dejamos null
-  // (no extendemos hacia el futuro la línea).
+  var primerDiaMov = movDelYear.length ? dayOfYear(new Date(movDelYear[0].fecha + 'T00:00:00')) : -1;
+  var ultimoDiaMov = movDelYear.length ? dayOfYear(new Date(movDelYear[movDelYear.length-1].fecha + 'T00:00:00')) : -1;
+
+  // Construimos el array: null antes del primer movimiento,
+  // saldo acumulado desde ahí hasta el último movimiento,
+  // null después.
   var saldoData = [];
-  var saldoActual = saldoInicio;
-  var haHabidoMov = false;
+  var saldoAcum = saldoInicio;
+  var yaAplicadoHoy = false;
+
   for(var i = 0; i < daysInYear; i++){
-    if(deltaPorDia[i] !== 0 || hayMovimientoHastaDia[i]){
-      saldoActual += deltaPorDia[i];
-      haHabidoMov = true;
-    }
-    if(ultimoDiaConMov === -1){
-      // Año sin movimientos: mostrar línea plana en saldoInicio si había saldo previo
-      saldoData.push(saldoInicio !== 0 ? saldoInicio : null);
-    } else if(i <= ultimoDiaConMov){
-      saldoData.push(saldoActual);
-    } else {
+    if(primerDiaMov === -1){
+      // Año sin movimientos
       saldoData.push(null);
+      continue;
+    }
+    if(i < primerDiaMov){
+      saldoData.push(null);
+    } else {
+      // Aplicar delta del día si lo hay
+      if(deltaPorDia[i] !== 0 || diasConMov[i]){
+        saldoAcum += deltaPorDia[i];
+      }
+      if(i <= ultimoDiaMov){
+        saldoData.push(saldoAcum);
+      } else {
+        saldoData.push(null);
+      }
     }
   }
 
@@ -2577,11 +2590,10 @@ function renderAhorroChart(){
   }
 
   // ── 5) Puntos destacados: solo en los días con movimiento real ──
-  // Configuramos el array de radios por punto para que solo se muestren esos.
   var pointRadii = [];
   var pointHoverRadii = [];
   for(var i = 0; i < daysInYear; i++){
-    if(hayMovimientoHastaDia[i]){
+    if(diasConMov[i]){
       pointRadii.push(4);
       pointHoverRadii.push(6);
     } else {
@@ -2626,8 +2638,7 @@ function renderAhorroChart(){
           data: saldoData,
           borderColor: '#FF6B35',
           backgroundColor: gReal,
-          tension: 0, fill: true,
-          stepped: 'before',
+          tension: 0.35, fill: true,
           pointRadius: pointRadii,
           pointHoverRadius: pointHoverRadii,
           pointBackgroundColor: '#FF6B35',
