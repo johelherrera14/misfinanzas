@@ -884,6 +884,14 @@
     <!-- Aviso si no hay datos -->
     <div id="pagos-empty" class="notice" style="display:none">No hay gastos presupuestados para este mes. Ve a <strong>Presupuesto</strong> para añadir importes.</div>
 
+    <!-- Toggle de vista: por categoría / pendientes -->
+    <div style="display:flex;align-items:center;justify-content:flex-end;margin-bottom:10px">
+      <div style="display:flex;gap:4px;background:var(--bg2);border-radius:100px;padding:3px" id="pagos-view-tabs">
+        <button type="button" data-view="cats" onclick="pagosSetViewMode('cats')" style="padding:6px 14px;border:none;border-radius:100px;background:var(--surface);color:var(--text);font-family:'DM Sans',sans-serif;font-size:12.5px;font-weight:500;cursor:pointer;box-shadow:var(--shadow);transition:all .15s">Por categoría</button>
+        <button type="button" data-view="pendientes" onclick="pagosSetViewMode('pendientes')" style="padding:6px 14px;border:none;border-radius:100px;background:transparent;color:var(--text2);font-family:'DM Sans',sans-serif;font-size:12.5px;font-weight:500;cursor:pointer;transition:all .15s">Pendientes</button>
+      </div>
+    </div>
+
     <!-- Categorías (leídas de budStruct + budValues) -->
     <div id="pagos-cats-wrap"></div>
   </div>
@@ -5163,6 +5171,22 @@ var pagosChecked = load('fin_pagos_checked',{
 // pagosSpent: { "catId|subId|YYYY|M": amount }  → gasto real acumulado
 var pagosSpent = load('fin_pagos_spent', {});
 
+// Modo de vista: 'cats' (clásico, agrupado por categoría) | 'pendientes' (plano)
+var pagosViewMode = load('fin_pagos_view', 'cats');
+function savePagosView(){ save('fin_pagos_view', pagosViewMode); }
+
+// Helper: ¿una subcategoría está pendiente este mes?
+// Pendiente = presupuesto > 0 AND sin marcar manualmente AND sin gastos registrados
+function pagosIsPendiente(catId, subId, y, m){
+  var bud = getBudVal(catId, subId, y, m);
+  if(bud <= 0) return false;
+  var key = catId + '|' + subId + '|' + y + '|' + m;
+  if(pagosChecked[key]) return false;
+  var spent = getTxSpent(subId, catId, y, m);
+  if(spent > 0) return false;
+  return true;
+}
+
 function pagosSave() {
   save('fin_pagos_checked', pagosChecked);
   save('fin_pagos_spent', pagosSpent);
@@ -5380,14 +5404,170 @@ function pagosSaveSpentTotal() {
   pagosRegisterSpent(catId, subId, val, 'set');
 }
 
+function pagosRenderPendientes(wrap){
+  var y = pagosYear, m = pagosMonth;
+
+  // Recolectar TODAS las subcategorías pendientes de TODAS las categorías de gasto
+  var pendientes = [];
+  budStruct.filter(function(c){ return c.type === 'expense'; }).forEach(function(cat){
+    cat.subs.forEach(function(sub){
+      if(pagosIsPendiente(cat.id, sub.id, y, m)){
+        pendientes.push({
+          cat: cat,
+          sub: sub,
+          monto: getBudVal(cat.id, sub.id, y, m)
+        });
+      }
+    });
+  });
+
+  // Orden: monto descendente
+  pendientes.sort(function(a, b){ return b.monto - a.monto; });
+
+  // Estado vacío: mes al día
+  if(pendientes.length === 0){
+    var empty = document.createElement('div');
+    empty.className = 'card';
+    empty.style.cssText = 'text-align:center;padding:2.5rem 1.5rem';
+    empty.innerHTML =
+      '<div style="font-size:36px;margin-bottom:8px">✅</div>'+
+      '<div style="font-family:\'Space Grotesk\',sans-serif;font-size:16px;font-weight:600;color:var(--text);margin-bottom:4px">Mes al día</div>'+
+      '<div style="font-size:13px;color:var(--text2)">No hay pagos pendientes este mes.</div>';
+    wrap.appendChild(empty);
+    return;
+  }
+
+  // Card con la lista
+  var card = document.createElement('div');
+  card.className = 'card';
+  card.style.cssText = 'padding:0;overflow:hidden';
+
+  // Cabecera de la card
+  var totalPend = pendientes.reduce(function(a, p){ return a + p.monto; }, 0);
+  var hdr = document.createElement('div');
+  hdr.style.cssText = 'display:flex;align-items:center;justify-content:space-between;padding:1rem 1.25rem;background:var(--bg2)';
+  hdr.innerHTML =
+    '<div>'+
+      '<div style="font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.08em">Pendientes</div>'+
+      '<div style="font-size:12.5px;color:var(--text2);margin-top:2px">' + pendientes.length + ' ' + (pendientes.length === 1 ? 'pago' : 'pagos') + '</div>'+
+    '</div>'+
+    '<div style="font-family:\'Space Grotesk\',sans-serif;font-size:20px;font-weight:600;color:var(--amber)">' + fmt(totalPend) + '</div>';
+  card.appendChild(hdr);
+
+  // Items
+  pendientes.forEach(function(p, idx){
+    var row = document.createElement('div');
+    row.id = 'pagos-pend-row-' + p.cat.id + '-' + p.sub.id;
+    row.style.cssText = 'display:flex;align-items:center;gap:12px;padding:12px 1.25rem;border-top:0.5px solid var(--border);transition:opacity .35s, background .15s, transform .35s';
+
+    // Punto de color de la categoría padre
+    var dot = document.createElement('div');
+    dot.style.cssText = 'width:10px;height:10px;border-radius:50%;background:' + p.cat.color + ';flex-shrink:0';
+    dot.title = p.cat.name;
+    row.appendChild(dot);
+
+    // Nombre de la subcategoría
+    var nameDiv = document.createElement('div');
+    nameDiv.style.cssText = 'flex:1;min-width:0;font-size:14px;color:var(--text);font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis';
+    nameDiv.textContent = p.sub.name;
+    row.appendChild(nameDiv);
+
+    // Monto
+    var amount = document.createElement('div');
+    amount.style.cssText = 'font-family:\'Space Grotesk\',sans-serif;font-size:14px;font-weight:600;color:var(--text);white-space:nowrap;flex-shrink:0';
+    amount.textContent = fmt(p.monto);
+    row.appendChild(amount);
+
+    // Botón check rápido
+    var checkBtn = document.createElement('button');
+    checkBtn.style.cssText = 'width:30px;height:30px;border-radius:50%;border:1px solid var(--border2);background:transparent;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all .15s';
+    checkBtn.innerHTML = '<svg width="12" height="9" viewBox="0 0 10 8" fill="none"><path d="M1 4L3.5 6.5L9 1" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>';
+    checkBtn.style.color = 'var(--text3)';
+    checkBtn.title = 'Marcar como pagado';
+    checkBtn.onmouseover = function(){
+      this.style.background = p.cat.color;
+      this.style.borderColor = p.cat.color;
+      this.style.color = '#fff';
+    };
+    checkBtn.onmouseout = function(){
+      this.style.background = 'transparent';
+      this.style.borderColor = 'var(--border2)';
+      this.style.color = 'var(--text3)';
+    };
+    checkBtn.onclick = (function(catObj, subObj, rowEl){ return function(){
+      pagosMarkPendientePagado(catObj, subObj, rowEl);
+    };})(p.cat, p.sub, row);
+    row.appendChild(checkBtn);
+
+    card.appendChild(row);
+  });
+
+  wrap.appendChild(card);
+}
+
+// Marca un pendiente como pagado con animación de "tachado + desvanecer"
+function pagosMarkPendientePagado(cat, sub, rowEl){
+  // Animación visual primero
+  if(rowEl){
+    rowEl.style.opacity = '0.4';
+    var nameDiv = rowEl.children[1];
+    if(nameDiv) nameDiv.style.textDecoration = 'line-through';
+    setTimeout(function(){
+      rowEl.style.opacity = '0';
+      rowEl.style.transform = 'translateX(20px)';
+    }, 250);
+  }
+
+  // Persistir y re-renderizar al terminar la animación
+  setTimeout(function(){
+    var key = cat.id + '|' + sub.id + '|' + pagosYear + '|' + pagosMonth;
+    pagosChecked[key] = true;
+    pagosSave();
+    pagosRender();
+  }, 700);
+}
+
+function pagosSetViewMode(mode){
+  if(mode !== 'cats' && mode !== 'pendientes') return;
+  pagosViewMode = mode;
+  savePagosView();
+  pagosUpdateViewTabs();
+  pagosRender();
+}
+
+function pagosUpdateViewTabs(){
+  var tabs = document.querySelectorAll('#pagos-view-tabs button');
+  tabs.forEach(function(btn){
+    var v = btn.getAttribute('data-view');
+    if(v === pagosViewMode){
+      btn.style.background = 'var(--surface)';
+      btn.style.color = 'var(--text)';
+      btn.style.boxShadow = 'var(--shadow)';
+    } else {
+      btn.style.background = 'transparent';
+      btn.style.color = 'var(--text2)';
+      btn.style.boxShadow = 'none';
+    }
+  });
+}
+
 function pagosRender() {
   var y = pagosYear, m = pagosMonth;
   var labelEl = document.getElementById('pagos-month-label');
   if (labelEl) labelEl.textContent = MONTHS_ES[m] + ' ' + y;
 
+  // Sincronizar el toggle visual cada vez que renderiza
+  pagosUpdateViewTabs();
+
   var wrap = document.getElementById('pagos-cats-wrap');
   if (!wrap) return;
   wrap.innerHTML = '';
+
+  if(pagosViewMode === 'pendientes'){
+    pagosRenderPendientes(wrap);
+    pagosUpdateSummary();
+    return;
+  }
 
   var expCats = budStruct.filter(function(c){ return c.type === 'expense'; });
 
@@ -6448,6 +6628,7 @@ async function fbSaveData(){
       ahorroMov: JSON.stringify(ahorroMov),
       ahorroCats: JSON.stringify(ahorroCats),
       ahorroInitDone: ahorroInitDone ? 'true' : 'false',
+      pagosViewMode: pagosViewMode,
       updatedAt: now
     };
     var ref = window._fbDoc(window._fbDb, 'users', fbUser.uid);
@@ -6497,6 +6678,9 @@ async function fbLoadData(){
       if(data.ahorroCats) ahorroCats = JSON.parse(data.ahorroCats);
       if(typeof data.ahorroInitDone !== 'undefined'){
         ahorroInitDone = (data.ahorroInitDone === true || data.ahorroInitDone === 'true');
+      }
+      if(data.pagosViewMode === 'cats' || data.pagosViewMode === 'pendientes'){
+        pagosViewMode = data.pagosViewMode;
       }
       // Sincronizar timestamp local
       try{localStorage.setItem('fin_local_ts', data.updatedAt);}catch(e){}
@@ -6560,7 +6744,7 @@ window.onFirebaseAuthChange = async function(user){
       var keysToRemove = ['fin_bstruct','fin_bvals','fin_bnotes','fin_tx','fin_creditos',
         'fin_goals','fin_pagos_checked','fin_pagos_spent','fin_currency',
         'fin_bsumexp','fin_local_ts','fin_pending_sync','fin_ahorro_real',
-        'fin_ahorro_mov','fin_ahorro_cats','fin_ahorro_init'];
+        'fin_ahorro_mov','fin_ahorro_cats','fin_ahorro_init','fin_pagos_view'];
       keysToRemove.forEach(function(k){ localStorage.removeItem(k); });
       console.log('Cambio de cuenta → localStorage limpiado, cargando de Firebase');
     }
@@ -6600,7 +6784,7 @@ async function restablecerCuenta(){
   var keysToRemove = ['fin_bstruct','fin_bvals','fin_bnotes','fin_tx','fin_creditos',
     'fin_goals','fin_pagos_checked','fin_pagos_spent','fin_currency',
     'fin_bsumexp','fin_local_ts','fin_pending_sync','fin_cats','fin_ahorro_real',
-    'fin_ahorro_mov','fin_ahorro_cats','fin_ahorro_init'];
+    'fin_ahorro_mov','fin_ahorro_cats','fin_ahorro_init','fin_pagos_view'];
   keysToRemove.forEach(function(k){ localStorage.removeItem(k); });
 
   // Guardar plantilla por defecto en Firestore directamente
@@ -6620,6 +6804,7 @@ async function restablecerCuenta(){
         ahorroMov: JSON.stringify([]),
         ahorroCats: JSON.stringify(DEFAULT_AHORRO_CATS),
         ahorroInitDone: 'false',
+        pagosViewMode: 'cats',
         updatedAt: now
       };
       var ref = window._fbDoc(window._fbDb, 'users', fbUser.uid);
