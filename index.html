@@ -2854,6 +2854,10 @@ function ahorroCellCommit(y, m, input){
 
 function showTab(t,btn){
   hideTooltip();
+  // Si saliendo de la pestaña Pagos, consolidar items marcados en sesión
+  if(t !== 'pagos' && typeof pagosConsolidatePendSession === 'function'){
+    pagosConsolidatePendSession();
+  }
   document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));
   document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
   document.getElementById('tab-'+t).classList.add('active');
@@ -5175,6 +5179,15 @@ var pagosSpent = load('fin_pagos_spent', {});
 var pagosViewMode = load('fin_pagos_view', 'cats');
 function savePagosView(){ save('fin_pagos_view', pagosViewMode); }
 
+// Memoria de sesión (solo RAM): items marcados como pagados desde la vista Pendientes
+// que se mantienen visibles hasta que el usuario cambia de mes/modo/pestaña.
+// Se vacía al consolidar la sesión.
+var pagosPendSessionMarked = {};  // { "catId|subId|y|m": true }
+
+function pagosConsolidatePendSession(){
+  pagosPendSessionMarked = {};
+}
+
 // Helper: ¿una subcategoría está pendiente este mes?
 // Pendiente = presupuesto > 0 AND sin marcar manualmente AND aún queda presupuesto por consumir
 // (incluye gastos parciales: si gastaste 86€ de 100€, sigue pendiente con 14€)
@@ -5209,6 +5222,7 @@ function setPagosSpent(catId, subId, val) {
 }
 
 function pagosChangeMonth(delta) {
+  pagosConsolidatePendSession();
   pagosMonth += delta;
   if (pagosMonth < 0) { pagosMonth = 11; pagosYear--; }
   if (pagosMonth > 11) { pagosMonth = 0; pagosYear++; }
@@ -5408,20 +5422,28 @@ function pagosSaveSpentTotal() {
 function pagosRenderPendientes(wrap){
   var y = pagosYear, m = pagosMonth;
 
-  // Recolectar TODAS las subcategorías pendientes (incluye parciales con monto restante > 0)
+  // Recolectar pendientes:
+  //   1. Subcategorías que cumplen pagosIsPendiente (siguen pendientes hoy)
+  //   2. Subcategorías marcadas en esta sesión desde la vista Pendientes
+  //      (aunque ya no cumplan pagosIsPendiente, siguen visibles tachadas)
   var pendientes = [];
+  var seen = {};
   budStruct.filter(function(c){ return c.type === 'expense'; }).forEach(function(cat){
     cat.subs.forEach(function(sub){
-      if(pagosIsPendiente(cat.id, sub.id, y, m)){
+      var key = cat.id + '|' + sub.id + '|' + y + '|' + m;
+      var isPend = pagosIsPendiente(cat.id, sub.id, y, m);
+      var inSession = !!pagosPendSessionMarked[key];
+      if(isPend || inSession){
         var bud = getBudVal(cat.id, sub.id, y, m);
         var spent = getTxSpent(sub.id, cat.id, y, m);
         var restante = Math.max(0, bud - spent);
         pendientes.push({ cat: cat, sub: sub, restante: restante });
+        seen[key] = true;
       }
     });
   });
 
-  // Orden: por monto restante descendente (lo que queda por pagar/consumir)
+  // Orden: por monto restante descendente
   pendientes.sort(function(a, b){ return b.restante - a.restante; });
 
   // Estado vacío
@@ -5442,14 +5464,24 @@ function pagosRenderPendientes(wrap){
   card.className = 'card';
   card.style.cssText = 'padding:0;overflow:hidden';
 
-  // Cabecera con total restante
-  var totalRestante = pendientes.reduce(function(a, p){ return a + p.restante; }, 0);
+  // Cabecera con total: cuenta solo items realmente pendientes.
+  // Los tachados en sesión NO cuentan, porque marcarlos significa que el pago
+  // está hecho (sólo permanecen visibles tachados como recordatorio visual reversible).
+  var totalRestante = 0;
+  var countReal = 0;
+  pendientes.forEach(function(p){
+    var key = p.cat.id + '|' + p.sub.id + '|' + y + '|' + m;
+    if(!pagosChecked[key]){
+      totalRestante += p.restante;
+      countReal += 1;
+    }
+  });
   var hdr = document.createElement('div');
   hdr.style.cssText = 'display:flex;align-items:center;justify-content:space-between;padding:1rem 1.25rem;background:var(--bg2)';
   hdr.innerHTML =
     '<div>'+
       '<div style="font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.08em">Pendientes</div>'+
-      '<div style="font-size:12.5px;color:var(--text2);margin-top:2px">' + pendientes.length + ' ' + (pendientes.length === 1 ? 'pago' : 'pagos') + '</div>'+
+      '<div style="font-size:12.5px;color:var(--text2);margin-top:2px">' + countReal + ' ' + (countReal === 1 ? 'pago' : 'pagos') + '</div>'+
     '</div>'+
     '<div style="font-family:\'Space Grotesk\',sans-serif;font-size:20px;font-weight:600;color:var(--amber)">' + fmt(totalRestante) + '</div>';
   card.appendChild(hdr);
@@ -5465,6 +5497,7 @@ function pagosRenderPendientes(wrap){
 
 function pagosSetViewMode(mode){
   if(mode !== 'cats' && mode !== 'pendientes') return;
+  if(mode !== pagosViewMode) pagosConsolidatePendSession();
   pagosViewMode = mode;
   savePagosView();
   pagosUpdateViewTabs();
@@ -5598,7 +5631,21 @@ function pagosBuildSubRow(cat, sub, opts){
   checkDiv.style.cssText = 'width:18px;height:18px;border-radius:50%;border:0.5px solid ' + chkBorder + ';background:' + chkColor + ';display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;transition:all .15s';
   if (isDone) checkDiv.innerHTML = '<svg width="10" height="8" viewBox="0 0 10 8" fill="none"><path d="M1 4L3.5 6.5L9 1" stroke="white" stroke-width="1.5" stroke-linecap="round"/></svg>';
   checkDiv.title = isDone ? 'Marcado como pagado (clic para desmarcar)' : 'Marcar como pagado';
-  checkDiv.onclick = (function(cid,sid){ return function(){ pagosToggleItem(cid,sid); }; })(cat.id, sub.id);
+  checkDiv.onclick = (function(cid,sid){ return function(){
+    var key = cid + '|' + sid + '|' + pagosYear + '|' + pagosMonth;
+    var wasChecked = !!pagosChecked[key];
+    // Si estamos en vista Pendientes y se está marcando ahora (no desmarcando),
+    // añadir al set de sesión para que el item permanezca visible tachado.
+    if(pagosViewMode === 'pendientes'){
+      if(!wasChecked){
+        pagosPendSessionMarked[key] = true;
+      } else {
+        // Desmarcando un item que estaba en sesión → sacarlo del set
+        delete pagosPendSessionMarked[key];
+      }
+    }
+    pagosToggleItem(cid, sid);
+  }; })(cat.id, sub.id);
 
   // Nombre (+ categoría padre opcional)
   var nameWrap = document.createElement('div');
