@@ -5176,14 +5176,15 @@ var pagosViewMode = load('fin_pagos_view', 'cats');
 function savePagosView(){ save('fin_pagos_view', pagosViewMode); }
 
 // Helper: ¿una subcategoría está pendiente este mes?
-// Pendiente = presupuesto > 0 AND sin marcar manualmente AND sin gastos registrados
+// Pendiente = presupuesto > 0 AND sin marcar manualmente AND aún queda presupuesto por consumir
+// (incluye gastos parciales: si gastaste 86€ de 100€, sigue pendiente con 14€)
 function pagosIsPendiente(catId, subId, y, m){
   var bud = getBudVal(catId, subId, y, m);
   if(bud <= 0) return false;
   var key = catId + '|' + subId + '|' + y + '|' + m;
   if(pagosChecked[key]) return false;
   var spent = getTxSpent(subId, catId, y, m);
-  if(spent > 0) return false;
+  if(spent >= bud) return false;
   return true;
 }
 
@@ -5407,24 +5408,23 @@ function pagosSaveSpentTotal() {
 function pagosRenderPendientes(wrap){
   var y = pagosYear, m = pagosMonth;
 
-  // Recolectar TODAS las subcategorías pendientes de TODAS las categorías de gasto
+  // Recolectar TODAS las subcategorías pendientes (incluye parciales con monto restante > 0)
   var pendientes = [];
   budStruct.filter(function(c){ return c.type === 'expense'; }).forEach(function(cat){
     cat.subs.forEach(function(sub){
       if(pagosIsPendiente(cat.id, sub.id, y, m)){
-        pendientes.push({
-          cat: cat,
-          sub: sub,
-          monto: getBudVal(cat.id, sub.id, y, m)
-        });
+        var bud = getBudVal(cat.id, sub.id, y, m);
+        var spent = getTxSpent(sub.id, cat.id, y, m);
+        var restante = Math.max(0, bud - spent);
+        pendientes.push({ cat: cat, sub: sub, restante: restante });
       }
     });
   });
 
-  // Orden: monto descendente
-  pendientes.sort(function(a, b){ return b.monto - a.monto; });
+  // Orden: por monto restante descendente (lo que queda por pagar/consumir)
+  pendientes.sort(function(a, b){ return b.restante - a.restante; });
 
-  // Estado vacío: mes al día
+  // Estado vacío
   if(pendientes.length === 0){
     var empty = document.createElement('div');
     empty.className = 'card';
@@ -5437,13 +5437,13 @@ function pagosRenderPendientes(wrap){
     return;
   }
 
-  // Card con la lista
+  // Card con la lista (cabecera + items reutilizando el mismo row del modo "Por categoría")
   var card = document.createElement('div');
   card.className = 'card';
   card.style.cssText = 'padding:0;overflow:hidden';
 
-  // Cabecera de la card
-  var totalPend = pendientes.reduce(function(a, p){ return a + p.monto; }, 0);
+  // Cabecera con total restante
+  var totalRestante = pendientes.reduce(function(a, p){ return a + p.restante; }, 0);
   var hdr = document.createElement('div');
   hdr.style.cssText = 'display:flex;align-items:center;justify-content:space-between;padding:1rem 1.25rem;background:var(--bg2)';
   hdr.innerHTML =
@@ -5451,80 +5451,16 @@ function pagosRenderPendientes(wrap){
       '<div style="font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.08em">Pendientes</div>'+
       '<div style="font-size:12.5px;color:var(--text2);margin-top:2px">' + pendientes.length + ' ' + (pendientes.length === 1 ? 'pago' : 'pagos') + '</div>'+
     '</div>'+
-    '<div style="font-family:\'Space Grotesk\',sans-serif;font-size:20px;font-weight:600;color:var(--amber)">' + fmt(totalPend) + '</div>';
+    '<div style="font-family:\'Space Grotesk\',sans-serif;font-size:20px;font-weight:600;color:var(--amber)">' + fmt(totalRestante) + '</div>';
   card.appendChild(hdr);
 
-  // Items
-  pendientes.forEach(function(p, idx){
-    var row = document.createElement('div');
-    row.id = 'pagos-pend-row-' + p.cat.id + '-' + p.sub.id;
-    row.style.cssText = 'display:flex;align-items:center;gap:12px;padding:12px 1.25rem;border-top:0.5px solid var(--border);transition:opacity .35s, background .15s, transform .35s';
-
-    // Punto de color de la categoría padre
-    var dot = document.createElement('div');
-    dot.style.cssText = 'width:10px;height:10px;border-radius:50%;background:' + p.cat.color + ';flex-shrink:0';
-    dot.title = p.cat.name;
-    row.appendChild(dot);
-
-    // Nombre de la subcategoría
-    var nameDiv = document.createElement('div');
-    nameDiv.style.cssText = 'flex:1;min-width:0;font-size:14px;color:var(--text);font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis';
-    nameDiv.textContent = p.sub.name;
-    row.appendChild(nameDiv);
-
-    // Monto
-    var amount = document.createElement('div');
-    amount.style.cssText = 'font-family:\'Space Grotesk\',sans-serif;font-size:14px;font-weight:600;color:var(--text);white-space:nowrap;flex-shrink:0';
-    amount.textContent = fmt(p.monto);
-    row.appendChild(amount);
-
-    // Botón check rápido
-    var checkBtn = document.createElement('button');
-    checkBtn.style.cssText = 'width:30px;height:30px;border-radius:50%;border:1px solid var(--border2);background:transparent;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all .15s';
-    checkBtn.innerHTML = '<svg width="12" height="9" viewBox="0 0 10 8" fill="none"><path d="M1 4L3.5 6.5L9 1" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>';
-    checkBtn.style.color = 'var(--text3)';
-    checkBtn.title = 'Marcar como pagado';
-    checkBtn.onmouseover = function(){
-      this.style.background = p.cat.color;
-      this.style.borderColor = p.cat.color;
-      this.style.color = '#fff';
-    };
-    checkBtn.onmouseout = function(){
-      this.style.background = 'transparent';
-      this.style.borderColor = 'var(--border2)';
-      this.style.color = 'var(--text3)';
-    };
-    checkBtn.onclick = (function(catObj, subObj, rowEl){ return function(){
-      pagosMarkPendientePagado(catObj, subObj, rowEl);
-    };})(p.cat, p.sub, row);
-    row.appendChild(checkBtn);
-
-    card.appendChild(row);
+  // Items: mismo row que en "Por categoría", con la categoría padre debajo del nombre
+  pendientes.forEach(function(p){
+    var row = pagosBuildSubRow(p.cat, p.sub, { showParent: true });
+    if(row) card.appendChild(row);
   });
 
   wrap.appendChild(card);
-}
-
-// Marca un pendiente como pagado con animación de "tachado + desvanecer"
-function pagosMarkPendientePagado(cat, sub, rowEl){
-  // Animación visual primero
-  if(rowEl){
-    rowEl.style.opacity = '0.4';
-    var nameDiv = rowEl.children[1];
-    if(nameDiv) nameDiv.style.textDecoration = 'line-through';
-    setTimeout(function(){
-      rowEl.style.opacity = '0';
-      rowEl.style.transform = 'translateX(20px)';
-    }, 250);
-  }
-
-  // Persistir y re-renderizar al terminar la animación
-  setTimeout(function(){
-    var key = cat.id + '|' + sub.id + '|' + pagosYear + '|' + pagosMonth;
-    pagosChecked[key] = true;
-    pagosSave();
-    pagosRender();
-  }, 700);
 }
 
 function pagosSetViewMode(mode){
@@ -5618,134 +5554,8 @@ function pagosRender() {
     }
 
     cat.subs.forEach(function(sub) {
-      var budgeted  = getBudVal(cat.id, sub.id, y, m);
-      var spent     = getTxSpent(sub.id, cat.id, y, m);
-      var available = Math.max(0, budgeted - spent);
-      var overBudget = spent > budgeted && budgeted > 0;
-      var key       = cat.id+'|'+sub.id+'|'+y+'|'+m;
-      // Auto-check: si gasto >= presupuestado, marcar automáticamente
-      if(budgeted > 0 && spent >= budgeted && !pagosChecked[key]) {
-        pagosChecked[key] = true; pagosSave();
-      }
-      var isDone    = !!pagosChecked[key];
-      var pct       = budgeted > 0 ? Math.min(100, Math.round(spent / budgeted * 100)) : 0;
-
-      var row = document.createElement('div');
-      row.style.cssText = 'padding:10px 1.25rem;border-top:0.5px solid var(--border)';
-
-      // Línea principal
-      var mainLine = document.createElement('div');
-      mainLine.style.cssText = 'display:flex;align-items:center;gap:10px;margin-bottom:' + (budgeted > 0 ? '8px' : '0');
-
-      // Círculo check
-      var checkDiv = document.createElement('div');
-      var chkColor = isDone ? cat.color : (spent > 0 ? cat.color+'40' : 'transparent');
-      var chkBorder= isDone ? cat.color : 'var(--border2)';
-      checkDiv.style.cssText = 'width:18px;height:18px;border-radius:50%;border:0.5px solid ' + chkBorder + ';background:' + chkColor + ';display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;transition:all .15s';
-      if (isDone) checkDiv.innerHTML = '<svg width="10" height="8" viewBox="0 0 10 8" fill="none"><path d="M1 4L3.5 6.5L9 1" stroke="white" stroke-width="1.5" stroke-linecap="round"/></svg>';
-      checkDiv.title = isDone ? 'Marcado como pagado (clic para desmarcar)' : 'Marcar como pagado';
-      checkDiv.onclick = (function(cid,sid){ return function(){ pagosToggleItem(cid,sid); }; })(cat.id, sub.id);
-
-      // Nombre
-      var nameSpan = document.createElement('span');
-      nameSpan.style.cssText = 'flex:1;font-size:14px;color:' + (isDone ? 'var(--text3)' : 'var(--text)') + ';text-decoration:' + (isDone ? 'line-through' : 'none');
-      nameSpan.textContent = sub.name;
-
-      // Bloque derecha: gastado (de transacciones) / presupuestado
-      var rightDiv = document.createElement('div');
-      rightDiv.style.cssText = 'display:flex;align-items:center;gap:6px;flex-shrink:0';
-
-      // Gasto real (solo lectura, viene de transacciones)
-      var spentSpan = document.createElement('span');
-      var spentColor = overBudget ? 'var(--red)' : (spent > 0 ? cat.color : 'var(--text3)');
-      spentSpan.style.cssText = 'font-size:13px;font-weight:500;color:'+spentColor+';min-width:64px;text-align:right';
-      spentSpan.textContent = spent > 0 ? fmt(spent) : '0';
-      spentSpan.title = 'Gastado (de Transacciones)';
-
-      // Separador "/"
-      var sep = document.createElement('span');
-      sep.style.cssText = 'font-size:12px;color:var(--text3)';
-      sep.textContent = '/';
-
-      // Importe presupuestado (editable → modal de presupuesto)
-      var budBtn = document.createElement('button');
-      budBtn.style.cssText = 'font-size:13px;color:var(--text2);background:none;border:0.5px solid var(--border);border-radius:var(--radius);padding:3px 8px;cursor:pointer;min-width:64px;text-align:right;font-family:inherit;transition:all .15s';
-      budBtn.textContent = budgeted > 0 ? fmt(budgeted) : '— ppto';
-      budBtn.title = 'Presupuestado · clic para editar';
-      budBtn.onmouseover = function(){ this.style.borderColor='var(--purple)'; this.style.color='var(--purple)'; };
-      budBtn.onmouseout  = function(){ this.style.borderColor='var(--border)'; this.style.color='var(--text2)'; };
-      budBtn.onclick = (function(cid,sid){ return function(){ pagosEditBudget(cid,sid); }; })(cat.id, sub.id);
-
-      // Atajo: ir a añadir transacción
-      var txBtn = document.createElement('button');
-      txBtn.style.cssText = 'width:24px;height:24px;border-radius:50%;border:0.5px solid var(--border2);background:none;cursor:pointer;font-size:13px;color:var(--text2);display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all .15s;line-height:1';
-      txBtn.textContent = '+';
-      txBtn.title = 'Ir a Transacciones para registrar un gasto';
-      txBtn.onmouseover = function(){ this.style.background=cat.color; this.style.color='#fff'; this.style.borderColor=cat.color; };
-      txBtn.onmouseout  = function(){ this.style.background='none'; this.style.color='var(--text2)'; this.style.borderColor='var(--border2)'; };
-      txBtn.onclick = (function(subIdVal, catIdVal){ return function(){
-        // Navegar a Transacciones
-        var navBtns=document.querySelectorAll('.nav-btn');
-        navBtns.forEach(function(b){ if(b.textContent.trim()==='Transacciones'){ showTab('transacciones',b); } });
-        setTimeout(function(){
-          // Seleccionar tipo gasto
-          setType('gasto');
-          // Seleccionar la categoría/subcategoría correcta
-          var catSel=document.getElementById('inp-cat');
-          var targetVal=subIdVal+'|'+catIdVal;
-          if(catSel){
-            for(var i=0;i<catSel.options.length;i++){
-              if(catSel.options[i].value===targetVal){ catSel.selectedIndex=i; break; }
-            }
-          }
-          // Poner el nombre de la subcategoría como descripción por defecto
-          var subName=txCatLabel(subIdVal+'|'+catIdVal);
-          var descEl2=document.getElementById('inp-desc');
-          if(descEl2) descEl2.value=subName;
-          // Sugerir el importe presupuestado para ese mes
-          var budgeted=getBudVal(catIdVal, subIdVal, pagosYear, pagosMonth);
-          var amtEl=document.getElementById('inp-amt');
-          if(amtEl){
-            amtEl.value=budgeted>0 ? budgeted : '';
-            amtEl.focus();
-            amtEl.select();
-          }
-        },80);
-      };})(sub.id, cat.id);
-
-      rightDiv.appendChild(spentSpan);
-      rightDiv.appendChild(sep);
-      rightDiv.appendChild(budBtn);
-      rightDiv.appendChild(txBtn);
-
-      mainLine.appendChild(checkDiv);
-      mainLine.appendChild(nameSpan);
-      mainLine.appendChild(rightDiv);
-      row.appendChild(mainLine);
-
-      // Barra de progreso (solo si hay presupuesto)
-      if (budgeted > 0) {
-        var barWrap = document.createElement('div');
-        barWrap.style.cssText = 'display:flex;align-items:center;gap:8px;padding-left:28px';
-        var barBg = document.createElement('div');
-        barBg.style.cssText = 'flex:1;height:4px;background:var(--bg3);border-radius:2px;overflow:hidden';
-        var barFill = document.createElement('div');
-        var barColor = overBudget ? 'var(--red)' : cat.color;
-        barFill.style.cssText = 'height:100%;border-radius:2px;background:' + barColor + ';width:' + pct + '%;transition:width .4s';
-        barBg.appendChild(barFill);
-        var barLabel = document.createElement('span');
-        barLabel.style.cssText = 'font-size:11px;color:' + (overBudget ? 'var(--red)' : 'var(--text3)') + ';white-space:nowrap;min-width:80px;text-align:right';
-        if (overBudget) {
-          barLabel.textContent = '+' + fmt(spent - budgeted) + ' sobre ppto';
-        } else {
-          barLabel.textContent = fmt(available) + ' disponible';
-        }
-        barWrap.appendChild(barBg);
-        barWrap.appendChild(barLabel);
-        row.appendChild(barWrap);
-      }
-
-      body.appendChild(row);
+      var row = pagosBuildSubRow(cat, sub, { showParent: false });
+      if(row) body.appendChild(row);
     });
 
     block.appendChild(body);
@@ -5753,6 +5563,154 @@ function pagosRender() {
   });
 
   pagosUpdateSummary();
+}
+
+// Construye el row de una subcategoría en la pestaña Pagos.
+// Es la misma fila que se ve en el modo "Por categoría" y "Pendientes".
+// Opciones:
+//   showParent: si true, añade el nombre de la categoría padre debajo del nombre de la subcategoría
+function pagosBuildSubRow(cat, sub, opts){
+  opts = opts || {};
+  var y = pagosYear, m = pagosMonth;
+  var budgeted  = getBudVal(cat.id, sub.id, y, m);
+  var spent     = getTxSpent(sub.id, cat.id, y, m);
+  var available = Math.max(0, budgeted - spent);
+  var overBudget = spent > budgeted && budgeted > 0;
+  var key       = cat.id+'|'+sub.id+'|'+y+'|'+m;
+  // Auto-check: si gasto >= presupuestado, marcar automáticamente
+  if(budgeted > 0 && spent >= budgeted && !pagosChecked[key]) {
+    pagosChecked[key] = true; pagosSave();
+  }
+  var isDone    = !!pagosChecked[key];
+  var pct       = budgeted > 0 ? Math.min(100, Math.round(spent / budgeted * 100)) : 0;
+
+  var row = document.createElement('div');
+  row.style.cssText = 'padding:10px 1.25rem;border-top:0.5px solid var(--border)';
+
+  // Línea principal
+  var mainLine = document.createElement('div');
+  mainLine.style.cssText = 'display:flex;align-items:center;gap:10px;margin-bottom:' + (budgeted > 0 ? '8px' : '0');
+
+  // Círculo check
+  var checkDiv = document.createElement('div');
+  var chkColor = isDone ? cat.color : (spent > 0 ? cat.color+'40' : 'transparent');
+  var chkBorder= isDone ? cat.color : 'var(--border2)';
+  checkDiv.style.cssText = 'width:18px;height:18px;border-radius:50%;border:0.5px solid ' + chkBorder + ';background:' + chkColor + ';display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;transition:all .15s';
+  if (isDone) checkDiv.innerHTML = '<svg width="10" height="8" viewBox="0 0 10 8" fill="none"><path d="M1 4L3.5 6.5L9 1" stroke="white" stroke-width="1.5" stroke-linecap="round"/></svg>';
+  checkDiv.title = isDone ? 'Marcado como pagado (clic para desmarcar)' : 'Marcar como pagado';
+  checkDiv.onclick = (function(cid,sid){ return function(){ pagosToggleItem(cid,sid); }; })(cat.id, sub.id);
+
+  // Nombre (+ categoría padre opcional)
+  var nameWrap = document.createElement('div');
+  nameWrap.style.cssText = 'flex:1;min-width:0';
+  var nameSpan = document.createElement('div');
+  nameSpan.style.cssText = 'font-size:14px;color:' + (isDone ? 'var(--text3)' : 'var(--text)') + ';text-decoration:' + (isDone ? 'line-through' : 'none') + ';white-space:nowrap;overflow:hidden;text-overflow:ellipsis';
+  nameSpan.textContent = sub.name;
+  nameWrap.appendChild(nameSpan);
+  if(opts.showParent){
+    var parentSpan = document.createElement('div');
+    parentSpan.style.cssText = 'font-size:11px;color:var(--text3);margin-top:1px';
+    parentSpan.textContent = cat.name;
+    nameWrap.appendChild(parentSpan);
+  }
+
+  // Bloque derecha: gastado (de transacciones) / presupuestado
+  var rightDiv = document.createElement('div');
+  rightDiv.style.cssText = 'display:flex;align-items:center;gap:6px;flex-shrink:0';
+
+  // Gasto real (solo lectura, viene de transacciones)
+  var spentSpan = document.createElement('span');
+  var spentColor = overBudget ? 'var(--red)' : (spent > 0 ? cat.color : 'var(--text3)');
+  spentSpan.style.cssText = 'font-size:13px;font-weight:500;color:'+spentColor+';min-width:64px;text-align:right';
+  spentSpan.textContent = spent > 0 ? fmt(spent) : '0';
+  spentSpan.title = 'Gastado (de Transacciones)';
+
+  // Separador "/"
+  var sep = document.createElement('span');
+  sep.style.cssText = 'font-size:12px;color:var(--text3)';
+  sep.textContent = '/';
+
+  // Importe presupuestado (editable → modal de presupuesto)
+  var budBtn = document.createElement('button');
+  budBtn.style.cssText = 'font-size:13px;color:var(--text2);background:none;border:0.5px solid var(--border);border-radius:var(--radius);padding:3px 8px;cursor:pointer;min-width:64px;text-align:right;font-family:inherit;transition:all .15s';
+  budBtn.textContent = budgeted > 0 ? fmt(budgeted) : '— ppto';
+  budBtn.title = 'Presupuestado · clic para editar';
+  budBtn.onmouseover = function(){ this.style.borderColor='var(--purple)'; this.style.color='var(--purple)'; };
+  budBtn.onmouseout  = function(){ this.style.borderColor='var(--border)'; this.style.color='var(--text2)'; };
+  budBtn.onclick = (function(cid,sid){ return function(){ pagosEditBudget(cid,sid); }; })(cat.id, sub.id);
+
+  // Atajo: ir a añadir transacción
+  var txBtn = document.createElement('button');
+  txBtn.style.cssText = 'width:24px;height:24px;border-radius:50%;border:0.5px solid var(--border2);background:none;cursor:pointer;font-size:13px;color:var(--text2);display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all .15s;line-height:1';
+  txBtn.textContent = '+';
+  txBtn.title = 'Ir a Transacciones para registrar un gasto';
+  txBtn.onmouseover = function(){ this.style.background=cat.color; this.style.color='#fff'; this.style.borderColor=cat.color; };
+  txBtn.onmouseout  = function(){ this.style.background='none'; this.style.color='var(--text2)'; this.style.borderColor='var(--border2)'; };
+  txBtn.onclick = (function(subIdVal, catIdVal){ return function(){
+    // Navegar a Transacciones
+    var navBtns=document.querySelectorAll('.nav-btn');
+    navBtns.forEach(function(b){ if(b.textContent.trim()==='Transacciones'){ showTab('transacciones',b); } });
+    setTimeout(function(){
+      // Seleccionar tipo gasto
+      setType('gasto');
+      // Seleccionar la categoría/subcategoría correcta
+      var catSel=document.getElementById('inp-cat');
+      var targetVal=subIdVal+'|'+catIdVal;
+      if(catSel){
+        for(var i=0;i<catSel.options.length;i++){
+          if(catSel.options[i].value===targetVal){ catSel.selectedIndex=i; break; }
+        }
+      }
+      // Poner el nombre de la subcategoría como descripción por defecto
+      var subName=txCatLabel(subIdVal+'|'+catIdVal);
+      var descEl2=document.getElementById('inp-desc');
+      if(descEl2) descEl2.value=subName;
+      // Sugerir el importe restante (presupuestado − ya gastado) para ese mes
+      var budgeted=getBudVal(catIdVal, subIdVal, pagosYear, pagosMonth);
+      var spentSoFar=getTxSpent(subIdVal, catIdVal, pagosYear, pagosMonth);
+      var restante=Math.max(0, budgeted - spentSoFar);
+      var amtEl=document.getElementById('inp-amt');
+      if(amtEl){
+        amtEl.value=restante>0 ? restante : '';
+        amtEl.focus();
+        amtEl.select();
+      }
+    },80);
+  };})(sub.id, cat.id);
+
+  rightDiv.appendChild(spentSpan);
+  rightDiv.appendChild(sep);
+  rightDiv.appendChild(budBtn);
+  rightDiv.appendChild(txBtn);
+
+  mainLine.appendChild(checkDiv);
+  mainLine.appendChild(nameWrap);
+  mainLine.appendChild(rightDiv);
+  row.appendChild(mainLine);
+
+  // Barra de progreso (solo si hay presupuesto)
+  if (budgeted > 0) {
+    var barWrap = document.createElement('div');
+    barWrap.style.cssText = 'display:flex;align-items:center;gap:8px;padding-left:28px';
+    var barBg = document.createElement('div');
+    barBg.style.cssText = 'flex:1;height:4px;background:var(--bg3);border-radius:2px;overflow:hidden';
+    var barFill = document.createElement('div');
+    var barColor = overBudget ? 'var(--red)' : cat.color;
+    barFill.style.cssText = 'height:100%;border-radius:2px;background:' + barColor + ';width:' + pct + '%;transition:width .4s';
+    barBg.appendChild(barFill);
+    var barLabel = document.createElement('span');
+    barLabel.style.cssText = 'font-size:11px;color:' + (overBudget ? 'var(--red)' : 'var(--text3)') + ';white-space:nowrap;min-width:80px;text-align:right';
+    if (overBudget) {
+      barLabel.textContent = '+' + fmt(spent - budgeted) + ' sobre ppto';
+    } else {
+      barLabel.textContent = fmt(available) + ' disponible';
+    }
+    barWrap.appendChild(barBg);
+    barWrap.appendChild(barLabel);
+    row.appendChild(barWrap);
+  }
+
+  return row;
 }
 
 
