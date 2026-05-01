@@ -4801,8 +4801,9 @@ function renderAnnualView(){
             var v=subM[mi];var note=getBudNote(cat.id,sub.id,y,mi);var isCur=y===now.getFullYear()&&mi===now.getMonth();
             var sc='cellSingleClick(\'' +cat.id+ '\',\'' +sub.id+ '\',' +y+ ',' +mi+ ',\'' +escJs(sub.name)+ '\',\'' +MONTHS_ES[mi]+ '\')';
             var dc=v!==0?('cellDoubleClick(\'' +cat.id+ '\',\'' +sub.id+ '\',' +y+ ',' +mi+ ')" title="Clic: editar'):'';
-            var ni=note?'<span style="position:absolute;top:2px;right:2px;width:5px;height:5px;border-radius:50%;background:#378ADD;display:inline-block"></span>':'';
-            html+='<td onclick="'+sc+'" '+(v>0?('ondblclick="'+dc+'"'):'')+' style="'+TD+TDCLICK+'background:'+(isCur?'rgba(0,0,0,.03);':'')+';position:relative">'
+            var niTitle=note?note.replace(/"/g,'&quot;'):'';
+            var ni=note?'<span style="position:absolute;top:2px;right:2px;width:5px;height:5px;border-radius:50%;background:#378ADD;display:inline-block" title="'+niTitle+'" ></span>':'';
+            html+='<td onclick="'+sc+'" '+(v!==0?('ondblclick="'+dc+'"'):'')+' style="'+TD+TDCLICK+'background:'+(isCur?'rgba(0,0,0,.03);':'')+';position:relative">'
               +(v!==0?fmtC(v)+ni:'<span style="color:var(--text3);font-size:11px">+</span>')+'</td>';
           }
           html+='<td style="'+TD+'border-left:0.5px solid var(--border);padding-right:6px;color:var(--text2)">'+(subY!==0?fmtC(subY):'—')+'</td>';
