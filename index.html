@@ -2995,6 +2995,7 @@ function showTab(t,btn){
   document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
   document.getElementById('tab-'+t).classList.add('active');
   btn.classList.add('active');
+  try{localStorage.setItem('fin_active_tab',t);}catch(e){}
   if(t==='resumen'){updateMetrics();setTimeout(renderCharts,60);renderRecent();}
   if(t==='transacciones'){renderTx();renderQuickSummary();}
   if(t==='pagos'){pagosRender();}
@@ -4284,12 +4285,18 @@ function cellDoubleClick(catId,subId,y,m){
 
 function propagateRight(catId,subId,y,fromMonth){
   var val=getBudVal(catId,subId,y,fromMonth);
-  if(!val||val===0){alert('La celda no tiene valor. Edítala primero.');return;}
+  if(val===0||val===undefined||val===null){alert('La celda no tiene valor. Edítala primero.');return;}
+  var note=getBudNote(catId,subId,y,fromMonth);
   var remaining=12-fromMonth-1;
   if(remaining===0){alert('Ya es el último mes del año, no hay meses a la derecha.');return;}
   var monthsText=MONTHS_ES.slice(fromMonth+1).join(', ');
-  if(!confirm('¿Copiar '+fmtCStatic(val)+' a todos los meses siguientes?\n\n→ '+monthsText))return;
-  for(var m=fromMonth+1;m<12;m++) setBudVal(catId,subId,y,m,val);
+  var noteMsg=note?'\n📝 También se copiará la nota: "'+note+'"':'';
+  if(!confirm('¿Copiar '+fmtCStatic(val)+' a todos los meses siguientes?\n\n→ '+monthsText+noteMsg))return;
+  for(var m=fromMonth+1;m<12;m++){
+    setBudVal(catId,subId,y,m,val);
+    if(note) setBudNote(catId,subId,y,m,note);
+    else setBudNote(catId,subId,y,m,'');
+  }
   renderAnnualView();
 }
 
@@ -7329,6 +7336,21 @@ document.getElementById('inp-date').value=new Date().toISOString().split('T')[0]
 // Init pagos rendered on tab open
 fillCatFromBudget('ingreso');
 updateMetrics();renderRecent();initMobileNav();updateMobileHero();
+// Restaurar tab activo tras recargar
+(function(){
+  var saved = '';
+  try{ saved = localStorage.getItem('fin_active_tab')||''; }catch(e){}
+  var validTabs = ['resumen','presupuesto','pagos','transacciones','creditos','ahorro','config'];
+  if(saved && validTabs.indexOf(saved) !== -1){
+    var btn = document.querySelector('.nav-btn[onclick*="showTab(\'"+saved+"\'"]');
+    if(!btn){
+      // Try desktop nav
+      var allBtns = document.querySelectorAll('.nav-btn');
+      allBtns.forEach(function(b){ if(b.getAttribute('onclick') && b.getAttribute('onclick').indexOf("'"+saved+"'") !== -1) btn = b; });
+    }
+    if(btn) showTab(saved, btn);
+  }
+})();
 setTimeout(renderCharts,100);
 setTimeout(driveInit,1000);
 document.addEventListener('keydown',function(e){if(e.key==='Escape'){closeEditModal();pagosCloseSpentModal();credCloseEdit();}});
