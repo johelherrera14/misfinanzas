@@ -1408,6 +1408,7 @@
         <div class="sep"></div>
         <div style="display:flex;gap:8px;flex-wrap:wrap">
           <button class="btn-sm" onclick="exportData()">Exportar datos (JSON)</button>
+          <button class="btn-sm" id="btn-export-analysis" onclick="exportForAnalysis()" style="color:var(--accent);border-color:var(--accent)">📋 Copiar datos para análisis</button>
           <button class="btn-sm" onclick="restablecerCuenta()" style="color:var(--red)">Restablecer cuenta</button>
         </div>
       </div>
@@ -2438,6 +2439,11 @@ function renderAhorroSummary(){
   var y = ahorroSelectedYear;
   // Sumar solo los meses con "real" introducido, y comparar contra los mismos meses planificados
   var sumReal = 0, sumPlanMatch = 0, sumPlanTotal = 0, mesesConReal = 0;
+  // Incluir saldo inicial del año en el planificado
+  ahorroMov.forEach(function(mv){
+    var d = new Date(mv.fecha + 'T00:00:00');
+    if(d.getFullYear() === y && mv.tipo === 'inicial') sumPlanTotal += mv.monto;
+  });
   for(var m = 0; m < 12; m++){
     var plan = calcAhorroPlanificado(y, m);
     sumPlanTotal += plan;
@@ -2491,13 +2497,15 @@ function renderAhorroChart(){
   if(!canvas) return;
   var y = ahorroSelectedYear;
 
-  // ── 1) Calcular saldo de arranque: suma de todos los movimientos anteriores al año ──
+  // ── 1) Calcular saldo de arranque: movimientos anteriores al año + saldo inicial del año ──
   var saldoInicio = 0;
   ahorroMov.forEach(function(mv){
     var d = new Date(mv.fecha + 'T00:00:00');
     if(d.getFullYear() < y){
       if(mv.tipo === 'retiro') saldoInicio -= mv.monto;
       else saldoInicio += mv.monto;
+    } else if(d.getFullYear() === y && mv.tipo === 'inicial'){
+      saldoInicio += mv.monto;
     }
   });
 
@@ -5071,6 +5079,37 @@ function exportData(){
   a.href=URL.createObjectURL(blob);
   a.download='misfinanzas_backup_'+new Date().toISOString().split('T')[0]+'.json';
   a.click();
+}
+
+function exportForAnalysis(){
+  var data = JSON.parse(driveGetAllData());
+  data.ahorroReal  = typeof ahorroReal  !== 'undefined' ? ahorroReal  : {};
+  data.ahorroMov   = typeof ahorroMov   !== 'undefined' ? ahorroMov   : [];
+  data.ahorroCats  = typeof ahorroCats  !== 'undefined' ? ahorroCats  : [];
+  data.exportedAt  = new Date().toISOString();
+  var json = JSON.stringify(data, null, 2);
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(json).then(function(){
+      var btn = document.getElementById('btn-export-analysis');
+      if(btn){ var orig=btn.textContent; btn.textContent='✓ Copiado'; btn.style.color='#1D9E75'; setTimeout(function(){ btn.textContent=orig; btn.style.color=''; },2500); }
+    }).catch(function(){
+      exportForAnalysisFallback(json);
+    });
+  } else {
+    exportForAnalysisFallback(json);
+  }
+}
+
+function exportForAnalysisFallback(json){
+  var ta = document.createElement('textarea');
+  ta.value = json;
+  ta.style.cssText = 'position:fixed;top:-9999px;left:-9999px';
+  document.body.appendChild(ta);
+  ta.select();
+  document.execCommand('copy');
+  document.body.removeChild(ta);
+  var btn = document.getElementById('btn-export-analysis');
+  if(btn){ var orig=btn.textContent; btn.textContent='✓ Copiado'; btn.style.color='#1D9E75'; setTimeout(function(){ btn.textContent=orig; btn.style.color=''; },2500); }
 }
 
 // ── EDIT MODAL ─────────────────────────────────────────────────────────────
