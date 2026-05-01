@@ -1183,7 +1183,26 @@
 
     <!-- Gráfico evolutivo anual -->
     <div class="card">
-      <div class="card-title">Evolución anual</div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.75rem">
+        <div class="card-title" style="margin-bottom:0">Evolución anual</div>
+        <button onclick="ahorroToggleScalePanel()" title="Configurar escala" style="background:none;border:0.5px solid var(--border2);border-radius:var(--radius);padding:5px 10px;cursor:pointer;font-size:12px;color:var(--text2);font-family:inherit;transition:all .15s" onmouseover="this.style.borderColor='var(--accent)';this.style.color='var(--accent)'" onmouseout="this.style.borderColor='var(--border2)';this.style.color='var(--text2)'">⚙ Escala</button>
+      </div>
+      <!-- Panel de configuración de escala (oculto por defecto) -->
+      <div id="ahorro-scale-panel" style="display:none;background:var(--bg2);border:0.5px solid var(--border);border-radius:var(--radius);padding:12px 14px;margin-bottom:12px">
+        <div style="font-size:12px;font-weight:500;color:var(--text2);margin-bottom:10px;text-transform:uppercase;letter-spacing:.05em">Escala del eje Y</div>
+        <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap">
+          <div style="display:flex;flex-direction:column;gap:4px">
+            <label style="font-size:11px;color:var(--text3)">Mínimo</label>
+            <input type="number" id="ahorro-scale-min" placeholder="Auto" step="100" style="width:110px;font-size:13px;height:34px;padding:0 10px;border:0.5px solid var(--border2);border-radius:var(--radius);background:var(--bg);color:var(--text);font-family:inherit">
+          </div>
+          <div style="display:flex;flex-direction:column;gap:4px">
+            <label style="font-size:11px;color:var(--text3)">Máximo</label>
+            <input type="number" id="ahorro-scale-max" placeholder="Auto" step="100" style="width:110px;font-size:13px;height:34px;padding:0 10px;border:0.5px solid var(--border2);border-radius:var(--radius);background:var(--bg);color:var(--text);font-family:inherit">
+          </div>
+          <button onclick="ahorroApplyScale()" style="height:34px;padding:0 16px;background:var(--accent);color:#fff;border:none;border-radius:var(--radius);font-family:inherit;font-size:13px;font-weight:500;cursor:pointer">Aplicar</button>
+          <button onclick="ahorroResetScale()" style="height:34px;padding:0 12px;background:none;border:0.5px solid var(--border2);border-radius:var(--radius);font-family:inherit;font-size:12px;color:var(--text2);cursor:pointer">Auto</button>
+        </div>
+      </div>
       <div class="chart-wrap" style="height:240px"><canvas id="chartAhorro"></canvas></div>
       <div class="legend" style="margin-top:10px">
         <span><span class="legend-dot" style="background:#34D399"></span>Planificado</span>
@@ -2487,6 +2506,42 @@ function renderAhorroSummary(){
   }
 }
 
+// ── Escala personalizada del gráfico de ahorro ──────────────────────────────
+var ahorroChartScale = load('fin_ahorro_scale', { min: null, max: null });
+function saveAhorroChartScale(){ save('fin_ahorro_scale', ahorroChartScale); }
+
+function ahorroToggleScalePanel(){
+  var panel = document.getElementById('ahorro-scale-panel');
+  if(!panel) return;
+  var open = panel.style.display !== 'none';
+  panel.style.display = open ? 'none' : 'block';
+  if(!open){
+    var minEl = document.getElementById('ahorro-scale-min');
+    var maxEl = document.getElementById('ahorro-scale-max');
+    if(minEl) minEl.value = ahorroChartScale.min !== null ? ahorroChartScale.min : '';
+    if(maxEl) maxEl.value = ahorroChartScale.max !== null ? ahorroChartScale.max : '';
+  }
+}
+
+function ahorroApplyScale(){
+  var minVal = parseFloat(document.getElementById('ahorro-scale-min').value);
+  var maxVal = parseFloat(document.getElementById('ahorro-scale-max').value);
+  ahorroChartScale.min = isNaN(minVal) ? null : minVal;
+  ahorroChartScale.max = isNaN(maxVal) ? null : maxVal;
+  saveAhorroChartScale();
+  renderAhorroChart();
+  document.getElementById('ahorro-scale-panel').style.display = 'none';
+}
+
+function ahorroResetScale(){
+  ahorroChartScale = { min: null, max: null };
+  saveAhorroChartScale();
+  document.getElementById('ahorro-scale-min').value = '';
+  document.getElementById('ahorro-scale-max').value = '';
+  renderAhorroChart();
+  document.getElementById('ahorro-scale-panel').style.display = 'none';
+}
+
 function renderAhorroChart(){
   var canvas = document.getElementById('chartAhorro');
   if(!canvas) return;
@@ -2751,6 +2806,8 @@ function renderAhorroChart(){
         },
         y: {
           grid: { color: ct.grid },
+          min: ahorroChartScale.min !== null ? ahorroChartScale.min : undefined,
+          max: ahorroChartScale.max !== null ? ahorroChartScale.max : undefined,
           ticks: {
             callback: function(v){ return fmt(v); },
             font: { size: 11 },
@@ -6721,6 +6778,7 @@ async function fbSaveData(){
       ahorroCats: JSON.stringify(ahorroCats),
       ahorroInitDone: ahorroInitDone ? 'true' : 'false',
       pagosViewMode: pagosViewMode,
+      ahorroChartScale: JSON.stringify(ahorroChartScale),
       updatedAt: now
     };
     var ref = window._fbDoc(window._fbDb, 'users', fbUser.uid);
@@ -6774,6 +6832,7 @@ async function fbLoadData(){
       if(data.pagosViewMode === 'cats' || data.pagosViewMode === 'pendientes'){
         pagosViewMode = data.pagosViewMode;
       }
+      if(data.ahorroChartScale) ahorroChartScale = JSON.parse(data.ahorroChartScale);
       // Sincronizar timestamp local
       try{localStorage.setItem('fin_local_ts', data.updatedAt);}catch(e){}
       return true;
