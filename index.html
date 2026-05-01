@@ -6897,6 +6897,17 @@ window.addEventListener('offline', function(){
 });
 
 function refreshUI(){
+  // Restaurar tab guardado si no se ha navegado aún
+  var savedTab = '';
+  try{ savedTab = localStorage.getItem('fin_active_tab')||''; }catch(e){}
+  var validTabs = ['resumen','presupuesto','pagos','transacciones','creditos','ahorro','config'];
+  if(savedTab && validTabs.indexOf(savedTab) !== -1 && savedTab !== 'resumen'){
+    var tabBtn = null;
+    document.querySelectorAll('.nav-btn').forEach(function(b){
+      if(b.getAttribute('onclick') && b.getAttribute('onclick').indexOf("'"+savedTab+"'") !== -1) tabBtn = b;
+    });
+    if(tabBtn){ showTab(savedTab, tabBtn); return; }
+  }
   updateMetrics(); renderRecent();
   setTimeout(renderCharts, 100);
   if(document.getElementById('tab-presupuesto').classList.contains('active')) renderAnnualView();
@@ -7336,21 +7347,7 @@ document.getElementById('inp-date').value=new Date().toISOString().split('T')[0]
 // Init pagos rendered on tab open
 fillCatFromBudget('ingreso');
 updateMetrics();renderRecent();initMobileNav();updateMobileHero();
-// Restaurar tab activo tras recargar
-(function(){
-  var saved = '';
-  try{ saved = localStorage.getItem('fin_active_tab')||''; }catch(e){}
-  var validTabs = ['resumen','presupuesto','pagos','transacciones','creditos','ahorro','config'];
-  if(saved && validTabs.indexOf(saved) !== -1){
-    var btn = document.querySelector('.nav-btn[onclick*="showTab(\'"+saved+"\'"]');
-    if(!btn){
-      // Try desktop nav
-      var allBtns = document.querySelectorAll('.nav-btn');
-      allBtns.forEach(function(b){ if(b.getAttribute('onclick') && b.getAttribute('onclick').indexOf("'"+saved+"'") !== -1) btn = b; });
-    }
-    if(btn) showTab(saved, btn);
-  }
-})();
+// Tab activo restaurado en refreshUI()
 setTimeout(renderCharts,100);
 setTimeout(driveInit,1000);
 document.addEventListener('keydown',function(e){if(e.key==='Escape'){closeEditModal();pagosCloseSpentModal();credCloseEdit();}});
