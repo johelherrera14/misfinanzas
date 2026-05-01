@@ -2630,6 +2630,26 @@ function renderAhorroChart(){
     planData.push(valor);
   }
 
+  // ── 5a) Puntos del planificado: uno por mes, solo en el día 1 de cada mes dentro del rango dibujado ──
+  var planPointRadii = [];
+  var planPointHoverRadii = [];
+  for(var i = 0; i < daysInYear; i++){
+    if(planDiaInicio === -1 || i < planDiaInicio || planData[i] === null){
+      planPointRadii.push(0);
+      planPointHoverRadii.push(0);
+    } else {
+      var d0 = new Date(y, 0, 1);
+      d0.setDate(d0.getDate() + i);
+      if(d0.getDate() === 1){
+        planPointRadii.push(3);
+        planPointHoverRadii.push(6);
+      } else {
+        planPointRadii.push(0);
+        planPointHoverRadii.push(4);
+      }
+    }
+  }
+
   // ── 5) Puntos destacados: solo en los días con movimiento real ──
   // Pequeños en reposo (protagonismo a la curva), más grandes al hacer hover.
   var pointRadii = [];
@@ -2670,7 +2690,11 @@ function renderAhorroChart(){
           borderColor: '#34D399',
           backgroundColor: gPlan,
           tension: 0, fill: true,
-          pointRadius: 0, pointHoverRadius: 0,
+          pointRadius: planPointRadii,
+          pointHoverRadius: planPointHoverRadii,
+          pointBackgroundColor: '#34D399',
+          pointBorderColor: dark ? '#17171A' : '#fff',
+          pointBorderWidth: 1.5,
           borderWidth: 2,
           borderDash: [4, 4],
           spanGaps: true
