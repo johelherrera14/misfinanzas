@@ -2439,11 +2439,6 @@ function renderAhorroSummary(){
   var y = ahorroSelectedYear;
   // Sumar solo los meses con "real" introducido, y comparar contra los mismos meses planificados
   var sumReal = 0, sumPlanMatch = 0, sumPlanTotal = 0, mesesConReal = 0;
-  // Incluir saldo inicial del año en el planificado
-  ahorroMov.forEach(function(mv){
-    var d = new Date(mv.fecha + 'T00:00:00');
-    if(d.getFullYear() === y && mv.tipo === 'inicial') sumPlanTotal += mv.monto;
-  });
   for(var m = 0; m < 12; m++){
     var plan = calcAhorroPlanificado(y, m);
     sumPlanTotal += plan;
