@@ -4734,7 +4734,7 @@ function renderAnnualView(){
     return parseFloat(n)<0?'<span style="color:var(--red)">−'+str+'</span>':str;
   }
 
-  var TH='padding:8px 3px;font-size:10px;font-weight:500;text-transform:uppercase;letter-spacing:.03em;white-space:nowrap;background:var(--bg);position:sticky;top:60px;z-index:5;';
+  var TH='padding:8px 3px;font-size:10px;font-weight:500;text-transform:uppercase;letter-spacing:.03em;white-space:nowrap;background:var(--bg);';
   var TD='padding:6px 3px;font-size:11px;text-align:right;white-space:nowrap;border-bottom:0.5px solid var(--border);';
   var TDCLICK='cursor:pointer;transition:background .1s;';
 
@@ -4744,7 +4744,7 @@ function renderAnnualView(){
   html+='<col style="width:70px"><col style="width:58px"></colgroup>';
 
   // Header
-  html+='<thead><tr style="border-bottom:1px solid var(--border2)">';
+  html+='<thead><tr id="bud-header-row" style="border-bottom:1px solid var(--border2)">';
   html+='<th style="'+TH+'text-align:left;padding-left:1rem;color:var(--text2)">Categoría</th>';
   html+='<th style="border-right:0.5px solid var(--border)"></th>';
   for(var mi=0;mi<12;mi++){
@@ -4890,6 +4890,8 @@ function renderAnnualView(){
 
   html+='</tbody></table>';
   document.getElementById('bud-annual-table').innerHTML=html;
+  budStickyActive=false; if(budStickyClone) budStickyClone.style.display='none';
+  setTimeout(function(){ if(typeof budStickyUpdate==='function') budStickyUpdate(); }, 50);
 
   // ── Sparklines ────────────────────────────────────────────────────────────
   function drawSparkline(id,vals,color){
@@ -7241,7 +7243,79 @@ function driveRestoreBackup(fileId,dateLabel){
         if(typeof fbSaveData==='function') fbSaveData();
         // Refrescar UI
         updateMetrics();renderRecent();initMobileNav();updateMobileHero();
-        setTimeout(renderCharts,100);
+        
+// ── Sticky budget header ─────────────────────────────────────────────────
+var budStickyClone = null;
+var budStickyActive = false;
+
+function budStickyUpdate(){
+  var tableWrap = document.querySelector('.card:has(#bud-annual-table)') ||
+                  document.getElementById('bud-annual-table') && document.getElementById('bud-annual-table').closest('.card');
+  var headerRow = document.getElementById('bud-header-row');
+  if(!tableWrap || !headerRow) return;
+
+  var wrapRect = tableWrap.getBoundingClientRect();
+  var navH = 60;
+  var shouldStick = wrapRect.top < navH && wrapRect.bottom > navH + 40;
+
+  if(shouldStick && !budStickyActive){
+    // Create clone
+    if(!budStickyClone){
+      budStickyClone = document.createElement('div');
+      budStickyClone.id = 'bud-sticky-clone';
+      budStickyClone.style.cssText = 'position:fixed;top:60px;left:0;right:0;z-index:90;overflow:hidden;pointer-events:none;';
+      document.body.appendChild(budStickyClone);
+    }
+    // Build clone content matching the table width and scroll
+    var table = tableWrap.querySelector('table');
+    if(table){
+      var cloneTable = table.cloneNode(false);
+      cloneTable.style.cssText = 'width:'+table.offsetWidth+'px;border-collapse:collapse;table-layout:fixed;margin-left:'+tableWrap.scrollLeft*-1+'px';
+      // Copy colgroup
+      var cg = table.querySelector('colgroup');
+      if(cg) cloneTable.appendChild(cg.cloneNode(true));
+      // Copy thead
+      var thead = table.querySelector('thead');
+      if(thead){
+        var cloneThead = thead.cloneNode(true);
+        cloneThead.style.cssText = 'background:var(--bg)';
+        // Apply border-bottom to the tr
+        var tr = cloneThead.querySelector('tr');
+        if(tr) tr.style.borderBottom = '1px solid var(--border2)';
+        cloneTable.appendChild(cloneThead);
+      }
+      // Wrap in a div matching the card's left/width
+      var wrapR = tableWrap.getBoundingClientRect();
+      budStickyClone.innerHTML = '';
+      var inner = document.createElement('div');
+      inner.style.cssText = 'position:absolute;left:'+wrapR.left+'px;width:'+wrapR.width+'px;overflow:hidden;background:var(--bg);border-bottom:1px solid var(--border);';
+      inner.appendChild(cloneTable);
+      budStickyClone.appendChild(inner);
+    }
+    budStickyActive = true;
+    budStickyClone.style.display = 'block';
+  } else if(!shouldStick && budStickyActive){
+    budStickyActive = false;
+    if(budStickyClone) budStickyClone.style.display = 'none';
+  }
+
+  // Sync horizontal scroll
+  if(budStickyActive && budStickyClone){
+    var cloneTable = budStickyClone.querySelector('table');
+    if(cloneTable) cloneTable.style.marginLeft = (-tableWrap.scrollLeft)+'px';
+  }
+}
+
+window.addEventListener('scroll', budStickyUpdate, {passive:true});
+window.addEventListener('resize', function(){ budStickyActive=false; if(budStickyClone) budStickyClone.style.display='none'; budStickyUpdate(); });
+// Also listen to horizontal scroll on the table wrapper
+document.addEventListener('scroll', function(e){
+  if(e.target && e.target.id === 'bud-annual-table' || (e.target && e.target.classList && e.target.classList.contains('card'))){
+    budStickyUpdate();
+  }
+}, true);
+
+setTimeout(renderCharts,100);
         renderConfig();
         driveShowStatus('✓ Datos restaurados correctamente desde el backup del '+dateLabel,'#1D9E75');
       }catch(e){
