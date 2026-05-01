@@ -2456,16 +2456,33 @@ function ahorroOpenInitialModalEdit(mv){
 
 function renderAhorroSummary(){
   var y = ahorroSelectedYear;
-  // Sumar solo los meses con "real" introducido, y comparar contra los mismos meses planificados
-  var sumReal = 0, sumPlanMatch = 0, sumPlanTotal = 0, mesesConReal = 0;
+  var now = new Date();
+  var currentY = now.getFullYear(), currentM = now.getMonth();
+
+  var sumReal = 0, sumPlanMatch = 0, mesesConReal = 0, lastRegisteredM = -1;
   for(var m = 0; m < 12; m++){
-    var plan = calcAhorroPlanificado(y, m);
-    sumPlanTotal += plan;
     var real = getAhorroReal(y, m);
     if(real !== null){
       sumReal += real;
-      sumPlanMatch += plan;
+      sumPlanMatch += calcAhorroPlanificado(y, m);
       mesesConReal++;
+      lastRegisteredM = m;
+    }
+  }
+
+  // Planificado acumulado = saldo real actual + plan de meses restantes sin registrar
+  // Si no hay datos reales → suma total del presupuesto anual
+  var saldoActual = ahorroSaldoTotal();
+  var planProyectado;
+  if(mesesConReal === 0){
+    // Sin ningún registro: suma total del año
+    planProyectado = 0;
+    for(var m = 0; m < 12; m++) planProyectado += calcAhorroPlanificado(y, m);
+  } else {
+    // Saldo real actual + meses futuros planificados
+    planProyectado = saldoActual;
+    for(var m = lastRegisteredM + 1; m < 12; m++){
+      planProyectado += calcAhorroPlanificado(y, m);
     }
   }
 
@@ -2481,15 +2498,18 @@ function renderAhorroSummary(){
       realEl.style.color = 'var(--text3)';
       if(realSubEl) realSubEl.textContent = 'sin registros aún';
     } else {
-      realEl.textContent = fmt(sumReal);
-      realEl.style.color = sumReal >= 0 ? 'var(--green)' : 'var(--red)';
+      realEl.textContent = fmt(saldoActual);
+      realEl.style.color = saldoActual >= 0 ? 'var(--green)' : 'var(--red)';
       if(realSubEl) realSubEl.textContent = mesesConReal + (mesesConReal === 1 ? ' mes registrado' : ' meses registrados');
     }
   }
 
   if(planEl){
-    planEl.textContent = fmt(sumPlanTotal);
+    planEl.textContent = fmt(planProyectado);
     planEl.style.color = 'var(--text)';
+    // Actualizar subtítulo de la métrica planificado
+    var planSubEl = planEl.nextElementSibling;
+    if(planSubEl) planSubEl.textContent = mesesConReal > 0 ? 'proyección a fin de año' : 'del presupuesto';
   }
 
   if(diffEl){
