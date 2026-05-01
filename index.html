@@ -2555,22 +2555,18 @@ function renderAhorroChart(){
   // null después.
   var saldoData = [];
   var saldoAcum = saldoInicio;
-  var yaAplicadoHoy = false;
 
   for(var i = 0; i < daysInYear; i++){
     if(primerDiaMov === -1){
-      // Año sin movimientos
       saldoData.push(null);
       continue;
     }
     if(i < primerDiaMov){
       saldoData.push(null);
     } else {
-      // Aplicar delta del día si lo hay
       if(deltaPorDia[i] !== 0 || diasConMov[i]){
         saldoAcum += deltaPorDia[i];
-      }
-      if(i <= ultimoDiaMov){
+        // Solo mostrar valor en días con movimiento real
         saldoData.push(saldoAcum);
       } else {
         saldoData.push(null);
@@ -2619,15 +2615,18 @@ function renderAhorroChart(){
     d0.setDate(d0.getDate() + i);
     var mes = d0.getMonth();
     var dia = d0.getDate();
-    var totalDiasMes = new Date(y, mes+1, 0).getDate();
-    // Acumulado desde enero hasta este punto
-    var acumHastaMesAnterior = 0;
-    for(var mm = 0; mm < mes; mm++) acumHastaMesAnterior += planPorMes[mm];
-    var fraccionMes = dia / totalDiasMes;
-    var acumTotal = acumHastaMesAnterior + planPorMes[mes] * fraccionMes;
-    // Restar lo acumulado hasta el punto de arranque para que empiece en saldoInicio
-    var valor = saldoInicio + (acumTotal - acumBaseInicio);
-    planData.push(valor);
+    // Solo poner valor en el día 1 de cada mes (o en el día exacto de arranque)
+    if(dia === 1 || i === planDiaInicio){
+      var totalDiasMes = new Date(y, mes+1, 0).getDate();
+      var acumHastaMesAnterior = 0;
+      for(var mm = 0; mm < mes; mm++) acumHastaMesAnterior += planPorMes[mm];
+      var fraccionMes = dia / totalDiasMes;
+      var acumTotal = acumHastaMesAnterior + planPorMes[mes] * fraccionMes;
+      var valor = saldoInicio + (acumTotal - acumBaseInicio);
+      planData.push(valor);
+    } else {
+      planData.push(null);
+    }
   }
 
   // ── 5a) Puntos del planificado: uno por mes, solo en el día 1 de cada mes dentro del rango dibujado ──
@@ -2711,7 +2710,7 @@ function renderAhorroChart(){
           pointBorderColor: dark ? '#17171A' : '#fff',
           pointBorderWidth: 1.5,
           borderWidth: 2.5,
-          spanGaps: false
+          spanGaps: true
         }
       ]
     },
