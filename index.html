@@ -4783,7 +4783,7 @@ function renderAnnualView(){
         +' ondrop="tableDrop(event,\'' +cat.id+ '\')"'
         +' ondragend="tableDragEnd()"'
         +' style="'+rowStyle+'">';
-      html+='<td style="padding:7px 4px 7px 1.5rem;font-size:12px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">';
+      html+='<td style="padding:7px 4px 7px 1.5rem;font-size:12px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+escHtml(cat.name)+'">';
       html+='<span style="color:var(--text3);font-size:13px;margin-right:4px;cursor:grab;vertical-align:middle;user-select:none">&#8995;</span>';
       html+='<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:'+cat.color+';margin-right:4px;vertical-align:middle"></span>';
       html+='<span onmousedown="catNameMouseDown(event,\'' +cat.id+ '\')" style="cursor:pointer;user-select:none" title="Clic: expandir">';
@@ -4802,7 +4802,7 @@ function renderAnnualView(){
           var subM=[];for(var mi=0;mi<12;mi++)subM.push(getBudVal(cat.id,sub.id,y,mi));
           var subY=subM.reduce((a,b)=>a+b,0);
           html+='<tr style="border-bottom:0.5px solid var(--border)">';
-          html+='<td onmousedown="subNameMouseDown(event,\'' +cat.id+ '\',\'' +sub.id+ '\')" style="padding:6px 4px 6px 2.5rem;font-size:11px;color:var(--text2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer;user-select:none" title="Doble clic: renombrar">&#8618; '+escHtml(sub.name)+'</td>';
+          html+='<td onmousedown="subNameMouseDown(event,\'' +cat.id+ '\',\'' +sub.id+ '\')" style="padding:6px 4px 6px 2.5rem;font-size:11px;color:var(--text2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer;user-select:none" title="'+escHtml(sub.name)+'">&#8618; '+escHtml(sub.name)+'</td>';
           html+='<td style="border-right:0.5px solid var(--border)"></td>';
           for(var mi=0;mi<12;mi++){
             var v=subM[mi];var note=getBudNote(cat.id,sub.id,y,mi);var isCur=y===now.getFullYear()&&mi===now.getMonth();
@@ -4810,8 +4810,8 @@ function renderAnnualView(){
             var dc=v!==0?('cellDoubleClick(\'' +cat.id+ '\',\'' +sub.id+ '\',' +y+ ',' +mi+ ')" title="Clic: editar'):'';
             var niTitle=note?note.replace(/"/g,'&quot;'):'';
             var ni=note?'<span style="position:absolute;top:2px;right:2px;width:5px;height:5px;border-radius:50%;background:#378ADD;display:inline-block" title="'+niTitle+'" ></span>':'';
-            html+='<td onclick="'+sc+'" '+(v!==0?('ondblclick="'+dc+'"'):'')+' style="'+TD+TDCLICK+'background:'+(isCur?'rgba(0,0,0,.03);':'')+';position:relative">'
-              +(v!==0?fmtC(v)+ni:'<span style="color:var(--text3);font-size:11px">+</span>')+'</td>';
+            html+='<td onclick="'+sc+'" '+((v!==0||note)?('ondblclick="'+(v!==0?dc:('cellDoubleClick(\'' +cat.id+ '\',\'' +sub.id+ '\',' +y+ ',' +mi+ ')" title="Clic: editar'))+'"'):'')+' style="'+TD+TDCLICK+'background:'+(isCur?'rgba(0,0,0,.03);':'')+';position:relative">'
+              +(v!==0?fmtC(v):'<span style="color:var(--text3);font-size:11px">+</span>')+ni+'</td>';
           }
           html+='<td style="'+TD+'border-left:0.5px solid var(--border);padding-right:6px;color:var(--text2)">'+(subY!==0?fmtC(subY):'—')+'</td>';
           html+='<td></td></tr>';
