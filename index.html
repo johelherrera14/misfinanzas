@@ -2697,7 +2697,22 @@ function renderAhorroChart(){
       for(var mm = 0; mm < mes; mm++) acumHastaMesAnterior += planPorMes[mm];
       var fraccionMes = dia / totalDiasMes;
       var acumTotal = acumHastaMesAnterior + planPorMes[mes] * fraccionMes;
-      var valor = saldoInicio + (acumTotal - acumBaseInicio);
+
+      var valor;
+      if(ultimoDiaMov !== -1 && i > ultimoDiaMov){
+        // Después del último movimiento real: proyectar desde el saldo actual real
+        // Calcular cuánto plan queda desde el mes siguiente al último movimiento
+        var d_last = new Date(y, 0, 1);
+        d_last.setDate(d_last.getDate() + ultimoDiaMov);
+        var mesUltimo = d_last.getMonth();
+        var planDesdeUltimo = 0;
+        for(var mm2 = mesUltimo + 1; mm2 < mes; mm2++) planDesdeUltimo += planPorMes[mm2];
+        planDesdeUltimo += planPorMes[mes] * fraccionMes;
+        valor = ahorroSaldoTotal() + planDesdeUltimo;
+      } else {
+        // Antes o en el último movimiento: trayectoria original desde saldoInicio
+        valor = saldoInicio + (acumTotal - acumBaseInicio);
+      }
       planData.push(valor);
     } else {
       planData.push(null);
