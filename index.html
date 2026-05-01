@@ -2581,23 +2581,37 @@ function renderAhorroChart(){
     }
   }
 
-  // ── 4) Serie "Planificado acumulado": parte del mismo saldoInicio y sube por meses ──
+  // ── 4) Serie "Planificado acumulado": arranca desde la fecha del saldo inicial o primer movimiento ──
   var planData = [];
-  var planAcum = saldoInicio;
   var planPorMes = [];
   for(var m = 0; m < 12; m++){
     planPorMes.push(calcAhorroPlanificado(y, m));
   }
-  // El planificado sube en el último día de cada mes (escalón). Así el 1 de febrero
-  // ya refleja el ahorro planeado de enero completo.
+  // Determinar día de arranque del planificado:
+  // 1) Si hay movimiento tipo 'inicial' en el año → su fecha
+  // 2) Si no → primer movimiento del año (primerDiaMov)
+  // 3) Si no hay ningún movimiento → no dibujar (todo null)
+  var planDiaInicio = -1;
+  ahorroMov.forEach(function(mv){
+    var d = new Date(mv.fecha + 'T00:00:00');
+    if(d.getFullYear() === y && mv.tipo === 'inicial'){
+      var idx = dayOfYear(d);
+      if(planDiaInicio === -1 || idx < planDiaInicio) planDiaInicio = idx;
+    }
+  });
+  if(planDiaInicio === -1) planDiaInicio = primerDiaMov; // fallback: primer movimiento real
+
   for(var i = 0; i < daysInYear; i++){
+    if(planDiaInicio === -1 || i < planDiaInicio){
+      planData.push(null);
+      continue;
+    }
     var d0 = new Date(y, 0, 1);
     d0.setDate(d0.getDate() + i);
     var mes = d0.getMonth();
     var dia = d0.getDate();
     var totalDiasMes = new Date(y, mes+1, 0).getDate();
-    // Progresión lineal dentro del mes: el ahorro del mes se acumula proporcionalmente
-    // (así la línea queda continua en vez de escalonada brusca)
+    // Progresión lineal dentro del mes
     var acumHastaMesAnterior = 0;
     for(var mm = 0; mm < mes; mm++) acumHastaMesAnterior += planPorMes[mm];
     var fraccionMes = dia / totalDiasMes;
