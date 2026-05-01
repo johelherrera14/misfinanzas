@@ -596,7 +596,7 @@
   @media (max-width: 640px) {
     #bud-annual-table table { font-size: 11px; }
     #bud-annual-table td, #bud-annual-table th { padding: 7px 8px !important; }
-    #bud-annual-table td:first-child { min-width: 100px; max-width: 120px; }
+    #bud-annual-table td:first-child { min-width: 100px; max-width: 200px; }
     #bud-annual-table td:not(:first-child) { min-width: 60px; }
   }
 
@@ -4739,7 +4739,7 @@ function renderAnnualView(){
   var TDCLICK='cursor:pointer;transition:background .1s;';
 
   var html='<table style="width:100%;border-collapse:collapse;table-layout:fixed">';
-  html+='<colgroup><col style="width:130px"><col style="width:5px">';
+  html+='<colgroup><col style="width:200px"><col style="width:5px">';
   for(var mi=0;mi<12;mi++) html+='<col>';
   html+='<col style="width:70px"><col style="width:58px"></colgroup>';
 
