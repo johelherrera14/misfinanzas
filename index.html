@@ -2545,6 +2545,8 @@ function renderAhorroChart(){
   movDelYear.forEach(function(mv){
     var idx = dayOfYear(new Date(mv.fecha + 'T00:00:00'));
     if(idx < 0 || idx >= daysInYear) return;
+    // El 'inicial' ya está en saldoInicio — no contarlo de nuevo en el delta
+    if(mv.tipo === 'inicial') return;
     var delta = (mv.tipo === 'retiro') ? -mv.monto : mv.monto;
     deltaPorDia[idx] += delta;
     diasConMov[idx] = true;
