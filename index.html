@@ -2603,6 +2603,18 @@ function renderAhorroChart(){
   });
   if(planDiaInicio === -1) planDiaInicio = primerDiaMov; // fallback: primer movimiento real
 
+  // Mes y fracción de día exactos del punto de arranque
+  var dInicio = new Date(y, 0, 1);
+  dInicio.setDate(dInicio.getDate() + (planDiaInicio > 0 ? planDiaInicio : 0));
+  var mesInicio = dInicio.getMonth();
+  var diaInicio = dInicio.getDate();
+  var totalDiasMesInicio = new Date(y, mesInicio + 1, 0).getDate();
+  var fraccionInicio = diaInicio / totalDiasMesInicio;
+  // Cuánto del presupuesto ya había "transcurrido" en el punto de arranque
+  var acumBaseInicio = 0;
+  for(var mm = 0; mm < mesInicio; mm++) acumBaseInicio += planPorMes[mm];
+  acumBaseInicio += planPorMes[mesInicio] * fraccionInicio;
+
   for(var i = 0; i < daysInYear; i++){
     if(planDiaInicio === -1 || i < planDiaInicio){
       planData.push(null);
@@ -2613,11 +2625,13 @@ function renderAhorroChart(){
     var mes = d0.getMonth();
     var dia = d0.getDate();
     var totalDiasMes = new Date(y, mes+1, 0).getDate();
-    // Progresión lineal dentro del mes
+    // Acumulado desde enero hasta este punto
     var acumHastaMesAnterior = 0;
     for(var mm = 0; mm < mes; mm++) acumHastaMesAnterior += planPorMes[mm];
     var fraccionMes = dia / totalDiasMes;
-    var valor = saldoInicio + acumHastaMesAnterior + planPorMes[mes] * fraccionMes;
+    var acumTotal = acumHastaMesAnterior + planPorMes[mes] * fraccionMes;
+    // Restar lo acumulado hasta el punto de arranque para que empiece en saldoInicio
+    var valor = saldoInicio + (acumTotal - acumBaseInicio);
     planData.push(valor);
   }
 
